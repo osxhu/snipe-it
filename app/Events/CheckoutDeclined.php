@@ -3,14 +3,13 @@
 namespace App\Events;
 
 use App\Models\CheckoutAcceptance;
-use App\Models\Contracts\Acceptable;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
 class CheckoutDeclined
 {
     use Dispatchable, SerializesModels;
-    
+
     /**
      * Create a new event instance.
      *
@@ -18,6 +17,6 @@ class CheckoutDeclined
      */
     public function __construct(CheckoutAcceptance $acceptance)
     {
-        $this->acceptance       = $acceptance;
+        $this->acceptance = $acceptance;
     }
 }

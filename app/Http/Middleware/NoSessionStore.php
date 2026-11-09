@@ -3,18 +3,18 @@
 namespace App\Http\Middleware;
 
 use Closure;
+use Illuminate\Http\Request;
 
 class NoSessionStore
 {
     protected $except = [
-        'health'
+        'health',
     ];
 
     /**
      * Handle an incoming request.
      *
-     * @param  \Illuminate\Http\Request $request
-     * @param  \Closure $next
+     * @param  Request  $request
      * @return mixed
      */
     public function handle($request, Closure $next)
@@ -24,6 +24,7 @@ class NoSessionStore
                 config()->set('session.driver', 'array');
             }
         }
+
         return $next($request);
     }
 }

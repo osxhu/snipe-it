@@ -6,11 +6,10 @@ use Illuminate\Cookie\Middleware\EncryptCookies as BaseEncrypter;
 
 class EncryptCookies extends BaseEncrypter
 {
-
     /**
      * The names of the cookies that should not be encrypted.
      *
-     * @var array
+     * @var array<int, string>
      */
     protected $except = [
         //
@@ -21,7 +20,5 @@ class EncryptCookies extends BaseEncrypter
      *
      * @var bool
      */
-    protected static $serialize = true;
-
-
+    protected static $serialize = false;
 }

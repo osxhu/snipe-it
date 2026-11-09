@@ -1,47 +1,52 @@
 <?php
+
 namespace App\Http\Transformers;
 
 use App\Helpers\Helper;
 use App\Models\Statuslabel;
-use Gate;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\Gate;
 
 class StatuslabelsTransformer
 {
-
-    public function transformStatuslabels (Collection $statuslabels, $total)
+    public function transformStatuslabels(Collection $statuslabels, $total)
     {
-        $array = array();
+        $array = [];
         foreach ($statuslabels as $statuslabel) {
             $array[] = self::transformStatuslabel($statuslabel);
         }
+
         return (new DatatablesTransformer)->transformDatatables($array, $total);
     }
 
-    public function transformStatuslabel (Statuslabel $statuslabel)
+    public function transformStatuslabel(Statuslabel $statuslabel)
     {
         $array = [
             'id' => (int) $statuslabel->id,
             'name' => e($statuslabel->name),
             'type' => $statuslabel->getStatuslabelType(),
             'color' => ($statuslabel->color) ? e($statuslabel->color) : null,
-            'show_in_nav' => ($statuslabel->show_in_nav=='1') ? true : false,
-            'default_label' => ($statuslabel->default_label =='1') ? true : false,
+            'show_in_nav' => ($statuslabel->show_in_nav == '1') ? true : false,
+            'default_label' => ($statuslabel->default_label == '1') ? true : false,
             'assets_count' => (int) $statuslabel->assets_count,
             'notes' => e($statuslabel->notes),
+            'created_by' => ($statuslabel->adminuser) ? [
+                'id' => (int) $statuslabel->adminuser->id,
+                'name' => e($statuslabel->adminuser->display_name),
+            ] : null,
             'created_at' => Helper::getFormattedDateObject($statuslabel->created_at, 'datetime'),
             'updated_at' => Helper::getFormattedDateObject($statuslabel->updated_at, 'datetime'),
         ];
 
         $permissions_array['available_actions'] = [
-            'update' => Gate::allows('update', Statuslabel::class) ? true : false,
-            'delete' => (Gate::allows('delete', Statuslabel::class) && ($statuslabel->assets_count == 0)) ? true : false,
+            'update' => Gate::allows('update', $statuslabel) ? true : false,
+            'delete' => (Gate::allows('delete', $statuslabel) && ($statuslabel->isDeletable())) ? true : false,
+            'bulk_selectable' => [
+                'delete' => $statuslabel->isDeletable(),
+            ],
         ];
         $array += $permissions_array;
 
         return $array;
     }
-
-
-
 }

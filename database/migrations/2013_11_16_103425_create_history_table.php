@@ -28,7 +28,6 @@ class CreateHistoryTable extends Migration
      */
     public function down()
     {
-        //Schema::drop('history');
+        // Schema::drop('history');
     }
-
 }

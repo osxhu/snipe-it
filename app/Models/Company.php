@@ -1,64 +1,414 @@
 <?php
+
 namespace App\Models;
 
+use App\Enums\FileStorage;
+use App\Http\Traits\UniqueUndeletedTrait;
+use App\Models\Builders\CompanyQueryBuilder;
+use App\Models\Traits\CompanyableTrait;
+use App\Models\Traits\HasUploads;
+use App\Models\Traits\Loggable;
 use App\Models\Traits\Searchable;
+use App\Presenters\CompanyPresenter;
 use App\Presenters\Presentable;
-use Auth;
-use DB;
+use App\Rules\ExternalUrl;
+use Exception;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Watson\Validating\ValidatingTrait;
 
 /**
  * Model for Companies.
  *
- * @version    v1.8
+ * @version v1.8
+ *
+ * @mixin IdeHelperCompany
  */
 final class Company extends SnipeModel
 {
+    use CompanyableTrait;
+    use HasFactory;
+    use HasUploads;
+    use Loggable;
+    use SoftDeletes;
+    use UniqueUndeletedTrait;
+
     protected $table = 'companies';
 
-    // Declare the rules for the model validation
-    protected $rules = [
-        'name' => 'required|min:1|max:255|unique:companies,name'
+    /**
+     * Fields that configure a per-company outbound webhook. These are the
+     * same fields the Livewire IntegrationSettingsForm gates on
+     * isSuperUser(), so the REST API must enforce the same control. Any
+     * controller / importer / job that mass-assigns from user input needs
+     * to reject the write when the user lacks superuser, rather than
+     * silently dropping the fields.
+     */
+    public const GATED_WEBHOOK_FIELDS = [
+        'webhook_selected',
+        'webhook_endpoint',
+        'webhook_channel',
+        'webhook_botname',
     ];
 
-    protected $presenter = 'App\Presenters\CompanyPresenter';
+    // Declare the rules for the model validation. The ExternalUrl rule
+    // for webhook_endpoint is layered on in getRules() below because PHP
+    // rejects `new` in a property-default array initializer.
+    protected $rules = [
+        'name' => 'required|max:255|unique_undeleted_in_scope:parent_id',
+        'fax' => 'min:7|max:35|nullable',
+        'phone' => 'min:7|max:35|nullable',
+        'email' => 'email|max:150|nullable',
+        'parent_id' => 'nullable|integer|exists:companies,id|parent_must_be_top_level:companies,id|must_have_no_children:companies,id|parent_within_scope',
+        'webhook_selected' => 'nullable|string|in:slack,general,google,microsoft',
+        'webhook_channel' => 'nullable|string',
+        'webhook_botname' => 'nullable|string|max:255',
+    ];
+
+    /**
+     * PHP 8.2 doesn't allow `new` in a property default, so the ExternalUrl rule is added on here.
+     */
+    public function getRules()
+    {
+        $rules = $this->rules;
+        $rules['webhook_endpoint'] = ['nullable', 'url', new ExternalUrl('app.webhook_allow_internal_targets')];
+
+        return $rules;
+    }
+
+    protected $casts = [
+        'parent_id' => 'integer',
+    ];
+
+    /**
+     * A company with no parent stores NULL, never 0 — the empty string from an
+     * unselected select2 and a literal 0 would otherwise survive the integer
+     * cast and break the `exists:` validation + parent/child queries.
+     */
+    public function setParentIdAttribute($value): void
+    {
+        $this->attributes['parent_id'] = ($value === '' || $value === null || (int) $value === 0)
+            ? null
+            : (int) $value;
+    }
+
+    protected $presenter = CompanyPresenter::class;
+
     use Presentable;
 
     /**
-    * Whether the model should inject it's identifier to the unique
-    * validation rules before attempting validation. If this property
-    * is not set in the model it will default to true.
-    *
-    * @var boolean
-    */
+     * Whether the model should inject it's identifier to the unique
+     * validation rules before attempting validation. If this property
+     * is not set in the model it will default to true.
+     *
+     * @var bool
+     */
     protected $injectUniqueIdentifier = true;
-    use ValidatingTrait;
 
     use Searchable;
-    
+    use ValidatingTrait;
+
     /**
      * The attributes that should be included when searching the model.
-     * 
+     *
      * @var array
      */
-    protected $searchableAttributes = ['name', 'created_at', 'updated_at'];
+    protected $searchableAttributes = [
+        'name',
+        'phone',
+        'fax',
+        'email',
+        'created_at',
+        'updated_at',
+        'notes',
+    ];
 
     /**
      * The relations and their attributes that should be included when searching the model.
-     * 
+     *
      * @var array
      */
-    protected $searchableRelations = [];   
+    protected $searchableRelations = [
+        'parent' => ['name'],
+        'adminuser' => ['first_name', 'last_name', 'display_name'],
+    ];
+
+    /**
+     * Advanced-search filterable fields.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public static function filterableFields(): array
+    {
+        return [
+            [
+                'field' => 'parent',
+                'type' => 'fk',
+                'column' => 'parent_id',
+                'endpoint' => 'companies',
+                'label' => trans('admin/companies/table.parent'),
+            ],
+            [
+                'field' => 'created_by',
+                'type' => 'fk',
+                'column' => 'created_by',
+                'endpoint' => 'users',
+                'label' => trans('general.created_by'),
+            ],
+            [
+                'field' => 'created_at',
+                'type' => 'date-range',
+                'label' => trans('general.created_at'),
+            ],
+            [
+                'field' => 'updated_at',
+                'type' => 'date-range',
+                'label' => trans('general.updated_at'),
+            ],
+        ];
+    }
 
     /**
      * The attributes that are mass assignable.
      *
-     * @var array
+     * @var list<string>
      */
-    protected $fillable = ['name'];
+    protected $fillable = [
+        'name',
+        'parent_id',
+        'phone',
+        'fax',
+        'email',
+        'tag_color',
+        'notes',
+        'webhook_selected',
+        'webhook_endpoint',
+        'webhook_channel',
+        'webhook_botname',
+    ];
 
-    private static function isFullMultipleCompanySupportEnabled()
+    /**
+     * Per-request memoization for getCurrentUserCompanyIds(), keyed by user id.
+     * CompanyableScope::apply() calls that method on every Eloquent query against
+     * a Companyable model, and the index/transformer hot path runs hundreds of
+     * such queries per page — without memoization we issue thousands of redundant
+     * pivot reads. Cleared explicitly in tests via flushCompanyIdsCache().
+     *
+     * @var array<int, array<int>>
+     */
+    private static array $companyIdsCache = [];
+
+    /**
+     * Per-process memoization for Schema::hasColumn(). Keyed by "table::column".
+     * Called on every row from isCurrentUserHasAccess() and every scoped query
+     * from scopeCompanyablesDirectly(). Laravel 12 does not cache hasColumn, so
+     * without this each call issues a separate information_schema.columns query.
+     * Schema cannot change inside a request, so a plain static map is enough.
+     * Reset in tests via flushCompanyColumnCache(). Reported in #19918.
+     *
+     * @var array<string, bool>
+     */
+    private static array $hasCompanyColumnCache = [];
+
+    /**
+     * Per-request memoization for User-target visibility in isCurrentUserHasAccess().
+     * Keyed by "actor_id::target_id" because CompanyableScope resolves against the
+     * currently authenticated user. Transformers call Gate::allows() per row for
+     * every User reference (created_by, assigned_to, manager, etc.), and without
+     * this each call issues the FMCS pivot-subquery exists() check again against
+     * the same target id. Reset in tests via flushUserVisibilityCache(). #19918.
+     *
+     * @var array<string, bool>
+     */
+    private static array $userIsVisibleCache = [];
+
+    /**
+     * Return hasColumn($table, $column) from the per-process memo. Only
+     * consulted inside the FMCS hot path, which only ever asks about the
+     * company_id column, but the signature stays generic so the two call
+     * sites can share one entry.
+     */
+    private static function tableHasCompanyColumn(string $table, string $column = 'company_id'): bool
+    {
+        return self::$hasCompanyColumnCache[$table.'::'.$column]
+            ??= Schema::hasColumn($table, $column);
+    }
+
+    /**
+     * Return whether $target is visible to the current actor, from the
+     * per-request memo. Falls back to the FMCS pivot-subquery exists()
+     * check on first lookup. Only called from the User branch of
+     * isCurrentUserHasAccess() with an authenticated non-superuser actor.
+     */
+    private static function userIsVisibleToActor(int $actorId, int $targetId): bool
+    {
+        return self::$userIsVisibleCache[$actorId.'::'.$targetId]
+            ??= User::where('users.id', $targetId)->exists();
+    }
+
+    /**
+     * Return the current user's company IDs by querying the pivot table directly.
+     *
+     * We deliberately bypass the Eloquent companies() relationship here because
+     * loading that relationship triggers CompanyableScope on the Company model,
+     * which calls this method again — infinite recursion.
+     *
+     * If a user is a member of a parent company, they implicitly have access to
+     * all of that company's children too. We expand the direct pivot set by
+     * pulling in children of any directly-assigned company. The one-level-deep
+     * constraint enforced by validation means a single child lookup is sufficient.
+     */
+    private static function getCurrentUserCompanyIds(): array
+    {
+        if (! Auth::hasUser()) {
+            return [];
+        }
+
+        $userId = auth()->id();
+
+        if (array_key_exists($userId, self::$companyIdsCache)) {
+            return self::$companyIdsCache[$userId];
+        }
+
+        $directIds = DB::table('company_user')
+            ->where('user_id', $userId)
+            ->pluck('company_id')
+            ->toArray();
+
+        if (empty($directIds)) {
+            return self::$companyIdsCache[$userId] = [];
+        }
+
+        $childIds = DB::table('companies')
+            ->whereIn('parent_id', $directIds)
+            ->pluck('id')
+            ->toArray();
+
+        return self::$companyIdsCache[$userId] = array_values(array_unique(array_merge($directIds, $childIds)));
+    }
+
+    /**
+     * Reset the per-user company-ids memoization. Called from TestCase::setUp()
+     * so that test isolation isn't broken by static state surviving across tests
+     * (RefreshDatabase rolls back the DB but not PHP static properties).
+     */
+    public static function flushCompanyIdsCache(): void
+    {
+        self::$companyIdsCache = [];
+    }
+
+    /**
+     * Reset the per-process hasColumn memo. Called from TestCase::setUp(). The
+     * schema is stable at runtime, but migrations can add or drop columns in
+     * tests, so wipe between cases.
+     */
+    public static function flushCompanyColumnCache(): void
+    {
+        self::$hasCompanyColumnCache = [];
+    }
+
+    /**
+     * Reset the per-request user-visibility memo. Called from TestCase::setUp()
+     * for the same test-isolation reason as flushCompanyIdsCache().
+     */
+    public static function flushUserVisibilityCache(): void
+    {
+        self::$userIsVisibleCache = [];
+    }
+
+    /**
+     * Return the set of company IDs a user viewing $companyId should see items
+     * from when "hierarchy expansion" is requested — the company itself, its
+     * direct parent (if any), and any of its direct children.
+     *
+     * Used by the company show-page tabs (users / assets / licenses / etc.) so
+     * that viewing a child company also surfaces items inherited from the
+     * parent, and viewing a parent surfaces items from its children. The
+     * one-level-deep validator caps the chain at depth 2, so this is at most
+     * three rows.
+     *
+     * Returns the original id alone if the company can't be found, so callers
+     * can pass the result straight into a whereIn without special-casing.
+     */
+    public static function reachableCompanyIds(int|string $companyId): array
+    {
+        $companyId = (int) $companyId;
+        if ($companyId <= 0) {
+            return [];
+        }
+
+        $row = DB::table('companies')->where('id', $companyId)->first(['id', 'parent_id']);
+        if (! $row) {
+            return [$companyId];
+        }
+
+        $ids = [(int) $row->id];
+        if ($row->parent_id) {
+            $ids[] = (int) $row->parent_id;
+        }
+
+        $childIds = DB::table('companies')
+            ->where('parent_id', $companyId)
+            ->pluck('id')
+            ->map(fn ($v) => (int) $v)
+            ->all();
+
+        return array_values(array_unique(array_merge($ids, $childIds)));
+    }
+
+    /**
+     * Walk the companies-by-parent map, emitting each company with a `use_text`
+     * prefix that reflects its depth. Children appear directly under their
+     * parent; orphans (children whose parent isn't in the visible set — can
+     * happen under FMCS scoping) are surfaced as top-level so they aren't lost.
+     *
+     * The map's keys are parent_id values, with `0` used for "no parent / top-
+     * level". Using 0 (not null) avoids PHP 8.4's deprecation of null array
+     * offsets when callers build the map from `$company->parent_id`.
+     *
+     * `$prefix` is the accumulated breadcrumb path of the current node's
+     * ancestors. Mirrors Location::indenter so both dropdowns share the same
+     * `Parent › Child` visual style, unified with the parent-chain
+     * breadcrumb rendered by the location info-panel.
+     */
+    public static function indenter(array $companies_by_parent, int $parent_id = 0, string $prefix = ''): array
+    {
+        $results = [];
+
+        if (! array_key_exists($parent_id, $companies_by_parent)) {
+            return [];
+        }
+
+        foreach ($companies_by_parent[$parent_id] as $company) {
+            $breadcrumb = $prefix === ''
+                ? $company->name
+                : $prefix.' › '.$company->name;
+
+            $company->use_text = $breadcrumb;
+            $company->use_image = ($company->image)
+                ? Storage::disk('public')->url(FileStorage::Companies->publicPath().$company->image)
+                : null;
+            $results[] = $company;
+
+            if (array_key_exists($company->id, $companies_by_parent)) {
+                $results = array_merge(
+                    $results,
+                    self::indenter($companies_by_parent, $company->id, $breadcrumb),
+                );
+            }
+        }
+
+        return $results;
+    }
+
+    public static function isFullMultipleCompanySupportEnabled()
     {
         $settings = Setting::getSettings();
 
@@ -67,23 +417,6 @@ final class Company extends SnipeModel
             return false;
         } else {
             return $settings->full_multiple_companies_support == 1;
-        }
-    }
-
-    private static function scopeCompanyablesDirectly($query, $column = 'company_id', $table_name = null )
-    {
-        if (Auth::user()) {
-            $company_id = Auth::user()->company_id;
-        } else {
-            $company_id = null;
-        }
-
-        $table = ($table_name) ? $table_name."." : $query->getModel()->getTable().".";
-
-        if(\Schema::hasColumn($query->getModel()->getTable(), $column)){
-             return $query->where($table.$column, '=', $company_id);
-        } else {
-            return $query->join('users as users_comp', 'users_comp.id', 'user_id')->where('users_comp.company_id', '=', $company_id);
         }
     }
 
@@ -98,114 +431,262 @@ final class Company extends SnipeModel
         }
     }
 
+    /**
+     * Get the company id for the current user taking into
+     * account the full multiple company support setting
+     * and if the current user is a super user.
+     *
+     * @return int|mixed|string|null
+     */
     public static function getIdForCurrentUser($unescaped_input)
     {
-        if (!static::isFullMultipleCompanySupportEnabled()) {
-            return static::getIdFromInput($unescaped_input);
+        if (! self::isFullMultipleCompanySupportEnabled()) {
+            return self::getIdFromInput($unescaped_input);
         } else {
-            $current_user = Auth::user();
+            $current_user = auth()->user();
 
             // Super users should be able to set a company to whatever they need
             if ($current_user->isSuperUser()) {
-                return static::getIdFromInput($unescaped_input);
+                return self::getIdFromInput($unescaped_input);
             } else {
-                if ($current_user->company_id != null) {
-                    return $current_user->company_id;
-                } else {
-                    return static::getIdFromInput($unescaped_input);
-                }
-            }
+                $userCompanyIds = self::getCurrentUserCompanyIds();
+                $submittedId = (int) self::getIdFromInput($unescaped_input);
 
+                // Company membership is now determined entirely by the pivot (company_user table).
+                // If the submitted value is a company the user actually belongs to, honour it.
+                if ($submittedId && in_array($submittedId, $userCompanyIds)) {
+                    return $submittedId;
+                }
+
+                // A user with pivot memberships who submits a company they don't belong to is
+                // attempting cross-tenant assignment — reject outright rather than silently
+                // overriding or storing null.
+                if ($submittedId && ! empty($userCompanyIds)) {
+                    throw ValidationException::withMessages([
+                        'company_id' => [trans('validation.in', ['attribute' => 'company_id'])],
+                    ]);
+                }
+
+                // No company submitted (or user has no pivot memberships) — fall back to the
+                // user's single company if unambiguous, otherwise null.
+                return count($userCompanyIds) === 1 ? $userCompanyIds[0] : null;
+            }
         }
     }
 
+    /**
+     * Check to see if the current user should have access to the model.
+     * I hate this method and I think it should be refactored.
+     *
+     * @return bool|void
+     */
     public static function isCurrentUserHasAccess($companyable)
     {
+        // When would this even happen tho??
         if (is_null($companyable)) {
             return false;
-        } elseif (!static::isFullMultipleCompanySupportEnabled()) {
+        }
+
+        // If FMCS is not enabled, everyone has access, return true
+        if (! self::isFullMultipleCompanySupportEnabled()) {
             return true;
-        } else {
-            if (Auth::user()) {
-                $current_user_company_id = Auth::user()->company_id;
-                $companyable_company_id = $companyable->company_id;
-                return ($current_user_company_id == null || $current_user_company_id == $companyable_company_id || Auth::user()->isSuperUser());
+        }
+
+        // Skip the hasColumn early-return for User targets. users.company_id
+        // was renamed to legacy_company_id, so hasColumn would now return false
+        // for every User and short-circuit the per-target check further down
+        // (which is the back-patch for #19187). User targets defer to
+        // CompanyableScope in the auth block below.
+        if (! is_string($companyable) && ! ($companyable instanceof User)) {
+            $company_table = $companyable->getModel()->getTable();
+            try {
+                // This is primarily for the gate:allows-check in location->isDeletable()
+                // Locations don't have a company_id so without this it isn't possible to delete locations with FullMultipleCompanySupport enabled
+                // because this function is called by SnipePermissionsPolicy->before()
+                if (! self::tableHasCompanyColumn($company_table)) {
+                    return true;
+                }
+
+            } catch (\Exception $e) {
+                Log::warning($e);
+            }
+        }
+
+        if (auth()->user()) {
+            if (auth()->user()->isSuperUser()) {
+                return true;
             }
 
+            // For User targets the visibility rule is already encoded in the
+            // CompanyableScope. If the actor can see this user in their scoped
+            // list, they can act on it (the role-permission check that runs
+            // after this still has final say). Doing this here keeps per-target
+            // access in lockstep with list visibility — the back-patch for
+            // #19187 tightened the bypass branch below but never updated the
+            // per-target path, which left actors able to see users they
+            // couldn't then edit. One check, one query, same logic as the list.
+            if ($companyable instanceof User) {
+                return self::userIsVisibleToActor((int) auth()->id(), (int) $companyable->id);
+            }
+
+            $userCompanyIds = self::getCurrentUserCompanyIds();
+
+            // Empty-pivot actor: route through null_company_is_floater to match
+            // the query scope's behavior for pivotless callers. Previously this
+            // branch returned true unconditionally, which let empty-pivot users
+            // act on rows their list queries would have hidden — the actual
+            // GHSA-8hq6-r8cw-gqwh bypass. This mirrors
+            // scopeCompanyablesDirectly()'s empty-pivot branches for
+            // companyable-table queries:
+            //   - Floater on: unrestricted (matches `return $query`).
+            //   - Floater off: null-company items only (matches `whereNull($column)`).
+            // Company targets never reach here — the tables-without-company_id
+            // early exit above returns true regardless of actor state.
+            if (empty($userCompanyIds)) {
+                if (Setting::getSettings()->null_company_is_floater) {
+                    return true;
+                }
+
+                return is_null($companyable->company_id ?? null);
+            }
+
+            $companyable_company_id = ($companyable instanceof Company)
+                ? $companyable->id
+                : $companyable->company_id;
+
+            // Null-company items are accessible to company-scoped users only when floater is on.
+            if (is_null($companyable_company_id)) {
+                return (bool) Setting::getSettings()->null_company_is_floater;
+            }
+
+            return in_array($companyable_company_id, $userCompanyIds);
         }
+
+        return false;
+    }
+
+    /**
+     * Filter an array of requested company IDs to only those the current user
+     * belongs to. Superusers may assign any company; non-superusers are limited
+     * to their own pivot memberships when FMCS is enabled.
+     */
+    public static function getIdsForCurrentUser(array $requestedIds): array
+    {
+        if (! self::isFullMultipleCompanySupportEnabled()) {
+            return $requestedIds;
+        }
+
+        // CLI contexts (snipeit:import, scheduled tasks) run without an
+        // auth user.
+        if (! Auth::hasUser() || auth()->user()->isSuperUser()) {
+            return $requestedIds;
+        }
+
+        $allowedIds = self::getCurrentUserCompanyIds();
+
+        return array_values(array_intersect($requestedIds, $allowedIds));
     }
 
     public static function isCurrentUserAuthorized()
     {
-        return ((!static::isFullMultipleCompanySupportEnabled()) || (Auth::user()->isSuperUser()));
+        return (! self::isFullMultipleCompanySupportEnabled()) || (auth()->user()->isSuperUser());
     }
 
     public static function canManageUsersCompanies()
     {
-        return (!static::isFullMultipleCompanySupportEnabled() || Auth::user()->isSuperUser() ||
-                Auth::user()->company_id == null);
+        return ! self::isFullMultipleCompanySupportEnabled()
+            || auth()->user()->isSuperUser()
+            || ! empty(self::getCurrentUserCompanyIds());
+    }
+
+    /**
+     * On hard-delete, wipe the image file. Soft-delete leaves it alone so a
+     * subsequent restore comes back with its image intact.
+     */
+    protected static function booted(): void
+    {
+        self::forceDeleted(function (self $company) {
+            if ($company->image) {
+                try {
+                    Storage::disk('public')->delete(FileStorage::Companies->publicPath().$company->image);
+                } catch (\Exception $e) {
+                    Log::info($e->getMessage());
+                }
+            }
+
+            foreach ($company->uploads as $upload) {
+                if (($path = $upload->uploads_file_path()) !== null) {
+                    try {
+                        Storage::delete($path);
+                    } catch (\Exception $e) {
+                        Log::info($e->getMessage());
+                    }
+                }
+                $upload->delete();
+            }
+        });
     }
 
     /**
      * Checks if company can be deleted
      *
      * @author [Dan Meltzer] [<dmeltzer.devel@gmail.com>]
-     * @since [v5.0]
+     *
+     * @since  [v5.0]
+     *
      * @return bool
      */
-    public function isDeletable() {
+    public function isDeletable()
+    {
+
         return Gate::allows('delete', $this)
-                && ($this->assets()->count() === 0)
-                && ($this->accessories()->count() === 0)
-                && ($this->consumables()->count() === 0)
-                && ($this->components()->count() === 0)
-                && ($this->users()->count() === 0);
+            && (($this->assets_count ?? $this->assets()->count()) === 0)
+            && (($this->accessories_count ?? $this->accessories()->count()) === 0)
+            && (($this->licenses_count ?? $this->licenses()->count()) === 0)
+            && (($this->components_count ?? $this->components()->count()) === 0)
+            && (($this->consumables_count ?? $this->consumables()->count()) === 0)
+            && (($this->users_count ?? $this->users()->count()) === 0)
+            && (($this->children_count ?? $this->children()->count()) === 0);
     }
 
+    /**
+     * @return int|mixed|string|null
+     */
     public static function getIdForUser($unescaped_input)
     {
-        if (!static::isFullMultipleCompanySupportEnabled() || Auth::user()->isSuperUser()) {
-            return static::getIdFromInput($unescaped_input);
+        if (! self::isFullMultipleCompanySupportEnabled() || auth()->user()->isSuperUser()) {
+            return self::getIdFromInput($unescaped_input);
         } else {
-            return static::getIdForCurrentUser($unescaped_input);
-        }
-    }
-
-    public static function scopeCompanyables($query, $column = 'company_id', $table_name = null )
-    {
-        // If not logged in and hitting this, assume we are on the command line and don't scope?'
-        if (!static::isFullMultipleCompanySupportEnabled() || (Auth::check() && Auth::user()->isSuperUser()) || (!Auth::check())) {
-            return $query;
-        } else {
-            return static::scopeCompanyablesDirectly($query, $column, $table_name);
-        }
-    }
-
-    public static function scopeCompanyableChildren(array $companyable_names, $query)
-    {
-        if (count($companyable_names) == 0) {
-            throw new Exception('No Companyable Children to scope');
-        } elseif (!static::isFullMultipleCompanySupportEnabled() || (Auth::check() && Auth::user()->isSuperUser())) {
-            return $query;
-        } else {
-            $f = function ($q) {
-                static::scopeCompanyablesDirectly($q);
-            };
-
-            $q = $query->where(function ($q) use ($companyable_names, $f) {
-                $q2 = $q->whereHas($companyable_names[0], $f);
-
-                for ($i = 1; $i < count($companyable_names); $i++) {
-                    $q2 = $q2->orWhereHas($companyable_names[$i], $f);
-                }
-            });
-            return $q;
+            return self::getIdForCurrentUser($unescaped_input);
         }
     }
 
     public function users()
     {
-        return $this->hasMany(User::class, 'company_id');
+        return $this->belongsToMany(User::class, 'company_user');
+    }
+
+    /**
+     * Parent company (one level only — children cannot themselves have children).
+     *
+     * Bypasses CompanyableScope because the scope hardcodes `companies.id` in its
+     * where clause, which collides with Eloquent's self-relation auto-alias
+     * (`laravel_reserved_0`) and produces "Unknown column 'laravel_reserved_0.parent_id'"
+     * on the index page. Hierarchy is metadata about a row the user already sees,
+     * not an access decision, so unscoping here is semantically correct too.
+     */
+    public function parent(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'parent_id')->withoutGlobalScopes([CompanyableScope::class]);
+    }
+
+    /**
+     * Child companies. The one-level-deep validator on parent_id guarantees
+     * children of a child cannot be created, so this is the full descendant set.
+     */
+    public function children()
+    {
+        return $this->hasMany(self::class, 'parent_id')->withoutGlobalScopes([CompanyableScope::class]);
     }
 
     public function assets()
@@ -217,6 +698,7 @@ final class Company extends SnipeModel
     {
         return $this->hasMany(License::class, 'company_id');
     }
+
     public function accessories()
     {
         return $this->hasMany(Accessory::class, 'company_id');
@@ -230,5 +712,248 @@ final class Company extends SnipeModel
     public function components()
     {
         return $this->hasMany(Component::class, 'company_id');
+    }
+
+    /**
+     * START COMPANY SCOPING FOR FMCS
+     */
+
+    /**
+     * Scoping table queries, determining if a logged in user is part of a company, and only allows the user to access items associated with that company if FMCS is enabled.
+     *
+     * This method is the one that the CompanyableTrait uses to contrain queries automatically, however that trait CANNOT be
+     * applied to the user's model, since it causes an infinite loop against the authenticated user.
+     *
+     * @todo - refactor that trait to handle the user's model as well.
+     *
+     * @author [A. Gianotto] <snipe@snipe.net>
+     *
+     * @return mixed
+     */
+    public static function scopeCompanyables($query, $column = 'company_id', $table_name = null)
+    {
+        // If not logged in and hitting this, assume we are on the command line and don't scope?
+        if (! self::isFullMultipleCompanySupportEnabled() || (Auth::hasUser() && auth()->user()->isSuperUser()) || (! Auth::hasUser())) {
+            return $query;
+        } else {
+            return self::scopeCompanyablesDirectly($query, $column, $table_name);
+        }
+    }
+
+    /**
+     * Scoping table queries, determining if a logged-in user is part of a company, and only allows
+     * that user to see items associated with that company
+     *
+     * @see https://github.com/laravel/framework/pull/24518 for info on Auth::hasUser()
+     */
+    private static function scopeCompanyablesDirectly($query, $column = 'company_id', $table_name = null)
+    {
+        $companyIds = self::getCurrentUserCompanyIds();
+
+        // Location scoping is opt-in even under FMCS: setting
+        // scope_locations_fmcs = 0 tells Snipe-IT that locations are meant
+        // to be shared across tenants. Without this short-circuit the
+        // global scope still filters locations by the caller's pivot
+        // memberships, which hides null-company locations from every
+        // non-superuser (strict mode) and breaks Location::find() lookups
+        // on the checkin / checkout / audit paths that were tightened in
+        // v8.7.0. CompanyableTrait::canCheckoutTo() and
+        // LocationsController::store already respect this setting; the
+        // global scope needs to as well.
+        if ($query->getModel()->getTable() === 'locations'
+            && ! Setting::getSettings()->scope_locations_fmcs) {
+            return $query;
+        }
+
+        // If we are scoping the companies table itself, look for the company.id
+        if ($query->getModel()->getTable() == 'companies') {
+            if (empty($companyIds)) {
+                return $query->whereNull('companies.id');
+            }
+
+            return $query->whereIn('companies.id', $companyIds);
+        }
+
+        $floater = Setting::getSettings()->null_company_is_floater;
+
+        // Users are scoped by pivot membership (company_user), not by company_id column,
+        // since a user may belong to multiple companies and company_id alone is insufficient.
+        if ($query->getModel()->getTable() == 'users') {
+            if (empty($companyIds)) {
+                // Floater: null-company actor is unrestricted — see everyone.
+                if ($floater) {
+                    return $query;
+                }
+
+                // No pivot memberships and floater off: show only other null-company users.
+                return $query->whereNotIn('users.id', function ($sub) {
+                    $sub->select('user_id')->from('company_user');
+                });
+            }
+
+            // Floater mode on: a company-scoped caller also sees null-company
+            // (floater) users. This mirrors the item-level floater rule
+            // documented at https://snipe-it.readme.io/docs/multi-tenancy-ish
+            // and is required so checkout dropdowns can offer floater users
+            // as valid targets under the "items from any company can be
+            // checked out to targets with no company assignment" policy.
+            //
+            // The "no pivot rows" branch queries the company_user pivot
+            // directly. Going through the Eloquent relation instead would
+            // apply the companies-table CompanyableScope to the subquery,
+            // restricting the JOIN to the caller's own companies. A user
+            // whose only pivot rows point at OTHER companies would then
+            // look pivot-less under that scoping and get picked up by the
+            // floater branch, leaking cross-company users into the caller's
+            // list. Reading the pivot directly bypasses that recursive
+            // scope and matches the intended "genuinely no pivot rows at
+            // all" semantics. This is the original bug fix from support
+            // ticket 56305. Floater visibility itself is deliberate per
+            // docs; only the cross-company leak was wrong.
+            if ($floater) {
+                return $query->where(function ($q) use ($companyIds) {
+                    $q->whereIn('users.id', function ($sub) use ($companyIds) {
+                        $sub->select('user_id')->from('company_user')->whereIn('company_id', $companyIds);
+                    })->orWhereNotIn('users.id', function ($sub) {
+                        $sub->select('user_id')->from('company_user');
+                    });
+                });
+            }
+
+            // Floater mode off (strict): only users pivoted to one of the
+            // caller's companies. Null-company users are not visible.
+            return $query->whereIn('users.id', function ($sub) use ($companyIds) {
+                $sub->select('user_id')->from('company_user')->whereIn('company_id', $companyIds);
+            });
+        }
+
+        // If the column exists in the table, use it to scope the query
+        if ($query && $query->getModel() && self::tableHasCompanyColumn($query->getModel()->getTable(), $column)) {
+            $table = ($table_name) ? $table_name.'.' : $query->getModel()->getTable().'.';
+
+            if (empty($companyIds)) {
+                // Floater: null-company actor sees all items (they are unrestricted for assets/etc).
+                if ($floater) {
+                    return $query;
+                }
+
+                return $query->whereNull($table.$column);
+            }
+
+            // action_logs: a NULL company_id means the logged object's table has no
+            // company_id column. For most of those (AssetModel, Category, Manufacturer,
+            // Statuslabel, Location, etc.) the row is admin-authored global config
+            // that is safe to show cross-company. But User is also a table without a
+            // scalar company_id column (users belong to companies via the company_user
+            // pivot), and User-item action_logs carry PII in their log_meta diff
+            // (email, phone, employee_num, notes, address, jobtitle, etc.) written by
+            // UserObserver on every profile edit. Treating those as globally visible
+            // leaks cross-company PII, per GHSA-mch3-g6rh-gj22.
+            //
+            // Split by item_type: non-User rows keep the existing "null is safe" rule;
+            // User-item rows only fall through when the viewer shares at least one
+            // company with the target user via the company_user pivot (same visibility
+            // rule the users list itself applies under FMCS).
+            if ($query->getModel()->getTable() === 'action_logs') {
+                $userClass = User::class;
+
+                return $query->where(function ($q) use ($table, $column, $companyIds, $userClass) {
+                    $q->whereIn($table.$column, $companyIds)
+                        ->orWhere(function ($null) use ($table, $column, $companyIds, $userClass) {
+                            $null->whereNull($table.$column)
+                                ->where(function ($check) use ($companyIds, $userClass) {
+                                    // Non-User item (or null item_type): safe global config, existing behavior.
+                                    $check->where('action_logs.item_type', '!=', $userClass)
+                                        ->orWhereNull('action_logs.item_type')
+                                        // User-item: viewer must share a company with the target user via pivot.
+                                        ->orWhere(function ($userItem) use ($companyIds, $userClass) {
+                                            $userItem->where('action_logs.item_type', $userClass)
+                                                ->whereIn('action_logs.item_id', function ($sub) use ($companyIds) {
+                                                    $sub->select('user_id')->from('company_user')->whereIn('company_id', $companyIds);
+                                                });
+                                        });
+                                });
+                        });
+                });
+            }
+
+            // Floater: null-company items are visible to users from any company.
+            if ($floater) {
+                return $query->where(function ($q) use ($table, $column, $companyIds) {
+                    $q->whereIn($table.$column, $companyIds)
+                        ->orWhereNull($table.$column);
+                });
+            }
+
+            return $query->whereIn($table.$column, $companyIds);
+        }
+    }
+
+    /**
+     * Scope a users query to those belonging to the given company IDs, respecting floater mode.
+     *
+     * Extracted from controller-level inline logic so the same rule is enforced consistently
+     * everywhere users are filtered by a specific set of company IDs (e.g. select2 dropdowns).
+     */
+    public static function scopeUsersByCompanyIds($query, array $companyIds): mixed
+    {
+        if (Setting::getSettings()->null_company_is_floater) {
+            // The "no pivot rows" branch queries the company_user pivot
+            // directly, for the same reason as scopeCompanyablesDirectly
+            // above: walking the Eloquent companies relation would apply
+            // the companies-table CompanyableScope to the subquery and let
+            // cross-company users leak in as apparent floaters. See ticket 56305.
+            return $query->where(function ($q) use ($companyIds) {
+                $q->whereIn('users.id', function ($sub) use ($companyIds) {
+                    $sub->select('user_id')->from('company_user')->whereIn('company_id', $companyIds);
+                })->orWhereNotIn('users.id', function ($sub) {
+                    $sub->select('user_id')->from('company_user');
+                });
+            });
+        }
+
+        return $query->whereIn('users.id', function ($sub) use ($companyIds) {
+            $sub->select('user_id')->from('company_user')->whereIn('company_id', $companyIds);
+        });
+    }
+
+    /**
+     * I legit do not know what this method does, but we can't remove it (yet).
+     *
+     * This gets invoked by CompanyableChildScope, but I'm not sure what it does.
+     *
+     * @author [A. Gianotto] <snipe@snipe.net>
+     *
+     * @return mixed
+     */
+    public static function scopeCompanyableChildren(array $companyable_names, $query)
+    {
+
+        if (count($companyable_names) == 0) {
+            throw new Exception('No Companyable Children to scope');
+        } elseif (! self::isFullMultipleCompanySupportEnabled() || (Auth::hasUser() && auth()->user()->isSuperUser())) {
+            return $query;
+        } else {
+            $f = function ($q) {
+                static::scopeCompanyablesDirectly($q);
+            };
+
+            $q = $query->where(
+                function ($q) use ($companyable_names, $f) {
+                    $q2 = $q->whereHas($companyable_names[0], $f);
+
+                    for ($i = 1; $i < count($companyable_names); $i++) {
+                        $q2 = $q2->orWhereHas($companyable_names[$i], $f);
+                    }
+                }
+            );
+
+            return $q;
+        }
+    }
+
+    public function newEloquentBuilder($query): CompanyQueryBuilder
+    {
+        return new CompanyQueryBuilder($query);
     }
 }

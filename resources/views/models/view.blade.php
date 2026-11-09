@@ -2,196 +2,96 @@
 
 {{-- Page title --}}
 @section('title')
-{{ trans('admin/models/table.view') }}
-{{ $model->model_tag }}
+    {{ $model->name }}
+    {{ ($model->model_number) ? '(#'.$model->model_number.')' : '' }}
 @parent
 @stop
 
 @section('header_right')
-  @can('superuser')
-  <div class="btn-group pull-right">
-     <button class="btn btn-default dropdown-toggle" data-toggle="dropdown">{{ trans('button.actions') }}
-          <span class="caret"></span>
-      </button>
-      <ul class="dropdown-menu">
-          @if ($model->deleted_at=='')
-            <li><a href="{{ route('models.edit', $model->id) }}">{{ trans('admin/models/table.edit') }}</a></li>
-            <li><a href="{{ route('clone/model', $model->id) }}">{{ trans('admin/models/table.clone') }}</a></li>
-            <li><a href="{{ route('hardware.create', ['model_id' => $model->id]) }}">{{ trans('admin/hardware/form.create') }}</a></li>
-          @else
-            <li><a href="{{ route('restore/model', $model->id) }}">{{ trans('admin/models/general.restore') }}</a></li>
-          @endif
-      </ul>
-  </div>
-  @endcan
-@stop
+    <x-button.info-panel-toggle/>
+@endsection
 
 {{-- Page content --}}
 @section('content')
+    <x-container columns="2">
 
-<div class="row">
-  <div class="col-md-9">
-    <div class="box box-default">
-      @if ($model->id)
-        <div class="box-header with-border">
-          <div class="box-heading">
-            <h2 class="box-title"> {{ $model->name }}
-                {{ ($model->model_number) ? '(#'.$model->model_number.')' : '' }}
-            </h2>
-          </div>
-        </div><!-- /.box-header -->
-      @endif
-      <div class="box-body">
-          <div class="row">
-              <div class="col-md-12">
-                  {{ Form::open([
-                     'method' => 'POST',
-                     'route' => ['hardware/bulkedit'],
-                     'class' => 'form-inline',
-                      'id' => 'bulkForm']) }}
-                  <div id="toolbar">
-                      <select name="bulk_actions" class="form-control select2">
-                          <option value="edit">Edit</option>
-                          <option value="delete">Delete</option>
-                          <option value="labels">Generate Labels</option>
-                      </select>
-                      <button class="btn btn-primary" id="bulkEdit" disabled>Go</button>
-                  </div>
+        @if ($model->deleted_at!='')
+            <div class="col-md-12">
+                <x-callout type="warning" icon="warning" live="assertive">
+                    {{ trans('admin/models/general.deleted') }}
+                </x-callout>
+            </div>
+        @endif
 
-                  <table
-                  data-columns="{{ \App\Presenters\AssetPresenter::dataTableLayout() }}"
-                  data-cookie-id-table="assetListingTable"
-                  data-pagination="true"
-                  data-id-table="assetListingTable"
-                  data-search="true"
-                  data-side-pagination="server"
-                  data-show-columns="true"
-                  data-toolbar="#toolbar"
-                  data-show-export="true"
-                  data-show-refresh="true"
-                  data-sort-order="asc"
-                  id="assetListingTable"
-                  data-url="{{ route('api.assets.index',['model_id'=> $model->id]) }}"
-                  class="table table-striped snipe-table"
-                  data-export-options='{
-                "fileName": "export-models-{{ $model->name }}-assets-{{ date('Y-m-d') }}",
-                "ignoreColumn": ["actions","image","change","checkbox","checkincheckout","icon"]
-                }'>
-                </table>
-                  {{ Form::close() }}
-              </div>
-          </div>
-      </div> <!-- /.box-body-->
-    </div> <!-- /.box-default-->
-  </div> <!-- /.col-md-9-->
-
-  <!-- side address column -->
-  <div class="col-md-3">
-      <div class="box box-default">
-              <div class="box-header with-border">
-                  <div class="box-heading">
-                      <h2 class="box-title"> More Info:</h2>
-                  </div>
-              </div><!-- /.box-header -->
-          <div class="box-body">
-
-              @if ($model->image)
-                  <img src="{{ Storage::disk('public')->url(app('models_upload_path').e($model->image)) }}" class="img-responsive"></li>
-              @endif
+        <x-page-column class="col-md-9 main-panel">
+            <x-tabs>
+                <x-slot:tabnav>
+                    <x-tabs.asset-tab count="{{ $model->assets()->AssetsForShow()->count() }}" />
+                    <x-tabs.files-tab :item="$model" count="{{ $model->uploads()->count() }}"/>
+                    <x-tabs.orders-tab count="{{ $model->ordersCount() }}"/>
+                    <x-tabs.history-tab count="{{ $model->history()->count() }}" :model="$model"/>
+                    <x-tabs.upload-tab :item="$model"/>
+                </x-slot:tabnav>
 
 
-            <ul class="list-unstyled" style="line-height: 25px;">
-              @if ($model->manufacturer)
-              <li>
-                {{ trans('general.manufacturer') }}:
-              @can('view', \App\Models\Manufacturer::class)
-                  <a href="{{ route('manufacturers.show', $model->manufacturer->id) }}">
-                      {{ $model->manufacturer->name }}
-                  </a>
-              @else
-                  {{ $model->manufacturer->name }}
-              @endcan
-              </li>
+                <x-slot:tabpanes>
+                    <x-tabs.pane name="assets">
+                        <x-table.assets name="modelAssets" :route="route('api.assets.index', ['model_id' => $model->id, 'status' => $model->deleted_at!='' ? 'Deleted' : ''])" />
+                    </x-tabs.pane>
 
-                  @if ($model->manufacturer->url)
-                      <li>
-                          <i class="fa fa-globe"></i> <a href="{{ $model->manufacturer->url }}">{{ $model->manufacturer->url }}</a>
-                      </li>
-                  @endif
+                    <!-- start orders tab pane -->
+                    <x-tabs.pane name="orders">
+                        <x-table.orders name="modelOrders" :route="route('api.order-items.index', ['asset_model_id' => $model->id])"/>
+                    </x-tabs.pane>
+                    <!-- end orders tab pane -->
 
-                  @if ($model->manufacturer->support_url)
-                      <li>
-                          <i class="fa fa-life-ring"></i> <a href="{{ $model->manufacturer->support_url }}">{{ $model->manufacturer->support_url }}</a>
-                      </li>
-                  @endif
+                    <!-- start history tab pane -->
+                    <x-tabs.pane name="history">
+                        {{-- AssetModel history is limited to model-level
+                             events (create / update / delete on the
+                             model itself). Models aren't checked out
+                             and don't get files uploaded to them, so
+                             hide the columns that only carry data for
+                             per-asset checkout / adjust-quantity flows.
+                             `item` is redundant since every row is
+                             this same model. --}}
+                        <x-table.history name="modelHistory"
+                            :model="$model"
+                            :route="route('api.models.history', $model)"
+                            :hide_fields="['order_number', 'target', 'item', 'serial', 'file', 'file_download', 'signature_file', 'quantity']"
+                        />
+                    </x-tabs.pane>
+                    <!-- end history tab pane -->
 
-                  @if ($model->manufacturer->support_phone)
-                      <li>
-                          <i class="fa fa-phone"></i>
-                          <a href="tel:{{ $model->manufacturer->support_phone }}">{{ $model->manufacturer->support_phone }}</a>
+                    <x-tabs.pane name="files">
+                        <x-table.files :object="$model" object_type="models" />
+                    </x-tabs.pane>
+                </x-slot:tabpanes>
+            </x-tabs>
 
-                      </li>
-                  @endif
+        </x-page-column>
+        <x-page-column class="col-md-3">
+            <x-box class="side-box expanded">
+                <x-info-panel :infoPanelObj="$model" img_path="{{ app('models_upload_url') }}" :qr_code_url="route('qr_code/common', ['object_type' => 'models', 'id' => $model->id])">
+                    <x-slot:buttons>
+                        <x-button.edit :item="$model" :route="route('models.edit', $model->id)" />
+                        <x-button.add :item="\App\Models\Asset::class" :tooltip="trans('general.new_asset')" :route="route('hardware.create', ['model_id' => $model->id])"/>
+                        <x-button.restore :item="$model" :route="route('models.restore.store', $model->id)" />
+                        <x-button.clone :item="$model" :route="route('models.clone.create', $model->id)" />
+                        <x-button.delete :item="$model" />
+                    </x-slot:buttons>
 
-                  @if ($model->manufacturer->support_email)
-                      <li>
-                          <i class="fa fa-envelope"></i> <a href="mailto:{{ $model->manufacturer->support_email }}">{{ $model->manufacturer->support_email }}</a>
-                      </li>
-                  @endif
-                @endif
-              @if ($model->model_number)
-              <li>
-                {{ trans('general.model_no') }}:
-                {{ $model->model_number }}
-              </li>
-              @endif
+                </x-info-panel>
+            </x-box>
+        </x-page-column>
+    </x-container>
 
-              @if ($model->depreciation)
-              <li>
-                {{ trans('general.depreciation') }}:
-                {{ $model->depreciation->name }} ({{ $model->depreciation->months.' '.trans('general.months')}})
-              </li>
-              @endif
-
-              @if ($model->eol)
-              <li>{{ trans('general.eol') }}:
-                {{ $model->eol .' '. trans('general.months') }}
-              </li>
-              @endif
-
-              @if ($model->fieldset)
-              <li>{{ trans('admin/models/general.fieldset') }}:
-                <a href="{{ route('fieldsets.show', $model->fieldset->id) }}">{{ $model->fieldset->name }}</a>
-              </li>
-              @endif
-
-              @if ($model->notes)
-                  <li>
-                      {{ trans('general.notes') }}:
-                      {{ $model->notes }}
-                  </li>
-              @endif
-
-
-
-              @if  ($model->deleted_at!='')
-               <li><br /><a href="{{ route('restore/model', $model->id) }}" class="btn-flat large info ">{{ trans('admin/models/general.restore') }}</a></li>
-              @endif
-            </ul>
-
-            @if ($model->note)
-            Notes:
-            <p>
-              {!! $model->present()->note() !!}
-            </p>
-            @endif
-          </div>
-      </div>
-  </div>
-  </div>
-</div>
-@stop
+@endsection
 
 @section('moar_scripts')
-@include ('partials.bootstrap-table')
-@stop
+    @can('files', $model)
+        <x-modals.upload-file item-type="models" :item-id="$model->id" />
+    @endcan
+
+    @include ('partials.bootstrap-table', ['exportFile' => 'models-' . $model->name . '-export', 'search' => false])
+@endsection

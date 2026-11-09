@@ -2,131 +2,207 @@
 
 {{-- Page title --}}
 @section('title')
- {{ $consumable->name }}
- {{ trans('general.consumable') }}
-@parent
-@stop
+  {{ $consumable->name }}
+  {{ trans('general.consumable') }} -
+  ({{ trans('general.remaining_var', ['count' => $consumable->numRemaining()])  }})
+  @parent
+@endsection
 
 @section('header_right')
-<a href="{{ URL::previous() }}" class="btn btn-primary pull-right">
-  {{ trans('general.back') }}</a>
-@stop
-
+    <x-button.info-panel-toggle/>
+@endsection
 
 {{-- Page content --}}
 @section('content')
 
-<div class="row">
-  <div class="col-md-9">
-    <div class="box box-default">
-      @if ($consumable->id)
-      <div class="box-header with-border">
-        <div class="box-heading">
-          <h2 class="box-title"> {{ $consumable->name }}</h2>
-        </div>
-      </div><!-- /.box-header -->
-      @endif
+    <x-container columns="2">
+        @if ($consumable->deleted_at)
+            <x-page-column>
+                <x-callout type="warning" icon="warning" live="assertive">
+                    {{ trans('general.item_deleted_warning', ['item_type' => trans('general.consumable')]) }}
+                </x-callout>
+            </x-page-column>
+        @elseif ($consumable->archived)
+            <x-page-column>
+                <x-callout type="warning" icon="warning" live="assertive">
+                    {{ trans('general.item_archived_warning', ['item_type' => trans('general.consumable')]) }}
+                </x-callout>
+            </x-page-column>
+        @endif
 
-      <div class="box-body">
-        <div class="row">
-          <div class="col-md-12">
-            <div class="table table-responsive">
+        <x-page-column class="col-md-9 main-panel">
+            <x-tabs>
+                <x-slot:tabnav>
 
-              <table
-                      data-cookie-id-table="consumablesCheckedoutTable"
-                      data-pagination="true"
-                      data-id-table="consumablesCheckedoutTable"
-                      data-search="false"
-                      data-side-pagination="server"
-                      data-show-columns="true"
-                      data-show-export="true"
-                      data-show-footer="true"
-                      data-show-refresh="true"
-                      data-sort-order="asc"
-                      data-sort-name="name"
-                      id="consumablesCheckedoutTable"
-                      class="table table-striped snipe-table"
-                      data-url="{{route('api.consumables.showUsers', $consumable->id)}}"
-                      data-export-options='{
-                "fileName": "export-consumables-{{ str_slug($consumable->name) }}-checkedout-{{ date('Y-m-d') }}",
-                "ignoreColumn": ["actions","image","change","checkbox","checkincheckout","icon"]
-                }'>
-                <thead>
-                  <tr>
-                    <th data-searchable="false" data-sortable="false" data-field="name">{{ trans('general.user') }}</th>
-                    <th data-searchable="false" data-sortable="false" data-field="created_at" data-formatter="dateDisplayFormatter">{{ trans('general.date') }}</th>
-                    <th data-searchable="false" data-sortable="false" data-field="admin">{{ trans('general.admin') }}</th>
-                  </tr>
-                </thead>
-              </table>
-            </div>
-          </div> <!-- /.col-md-12-->
+                    <x-tabs.nav-item
+                            name="assigned"
+                            class="active"
+                            icon_type="checkedout"
+                            label="{{ trans('general.assigned') }}"
+                            count="{{ $consumable->numOutstanding() }}"
+                    />
 
-        </div>
-      </div>
-    </div> <!-- /.box.box-default-->
-  </div> <!-- /.col-md-9-->
-  <div class="col-md-3">
-    @if ($consumable->image!='')
-      <div class="col-md-12 text-center" style="padding-bottom: 15px;">
-        <a href="{{ Storage::disk('public')->url('consumables/'.e($consumable->image)) }}" data-toggle="lightbox">
-            <img src="{{ Storage::disk('public')->url('consumables/'.e($consumable->image)) }}" class="img-responsive img-thumbnail" alt="{{ $consumable->name }}"></a>
-      </div>
-    @endif
+                    <x-tabs.files-tab :item="$consumable" count="{{ $consumable->uploads()->count() }}"/>
+                    <x-tabs.orders-tab count="{{ $consumable->ordersCount() }}"/>
+                    <x-tabs.history-tab count="{{ $consumable->history()->count() }}" :model="$consumable"/>
+                    <x-tabs.upload-tab :item="$consumable"/>
 
-    @if ($consumable->purchase_date)
-      <div class="col-md-12" style="padding-bottom: 5px;">
-        <strong>{{ trans('general.purchase_date') }}: </strong>
-        {{ $consumable->purchase_date }}
-      </div>
-    @endif
+                </x-slot:tabnav>
 
-    @if ($consumable->purchase_cost)
-      <div class="col-md-12" style="padding-bottom: 5px;">
-        <strong>{{ trans('general.purchase_cost') }}:</strong>
-        {{ $snipeSettings->default_currency }}
-        {{ \App\Helpers\Helper::formatCurrencyOutput($consumable->purchase_cost) }}
-      </div>
-    @endif
+                <x-slot:tabpanes>
 
-    @if ($consumable->item_no)
-      <div class="col-md-12" style="padding-bottom: 5px;">
-        <strong>{{ trans('admin/consumables/general.item_no') }}:</strong>
-        {{ $consumable->item_no }}
-      </div>
-    @endif
+                    <x-tabs.pane name="assigned">
 
-    @if ($consumable->model_number)
-      <div class="col-md-12" style="padding-bottom: 5px;">
-        <strong>{{ trans('general.model_no') }}:</strong>
-        {{ $consumable->model_number }}
-      </div>
-    @endif
+                        @can('checkout', $consumable)
+                            <x-slot:bulkactions>
+                                <x-table.bulk-actions
+                                    name="consumableCheckedOut"
+                                    :action_route="route('consumables.bulkconsume.show')"
+                                    model_name="consumables_user"
+                                    :actions="[
+                                        'consume' => ['label' => trans('admin/consumables/general.bulk_consume')],
+                                    ]"
+                                />
+                            </x-slot:bulkactions>
+                        @endcan
 
-    @if ($consumable->manufacturer)
-      <div class="col-md-12" style="padding-bottom: 5px;">
-        <strong>{{ trans('general.manufacturer') }}:</strong>
-        {{ $consumable->manufacturer->name }}
-      </div>
-    @endif
+                        <x-table
+                            name="consumableCheckedOut" :presenter="\App\Presenters\ConsumablePresenter::checkedOut()"
+                            :api_url="route('api.consumables.show.users', $consumable->id)"
+                        />
 
-    @if ($consumable->order_number)
-      <div class="col-md-12" style="padding-bottom: 5px;">
-        <strong>{{ trans('general.order_number') }}:</strong>
-        {{ $consumable->order_number }}
-      </div>
-    @endif
+                    </x-tabs.pane>
 
-    @can('checkout', \App\Models\Accessory::class)
-    <div class="col-md-12">
-        <a href="{{ route('checkout/consumable', $consumable->id) }}" style="padding-bottom:5px;" class="btn btn-primary btn-sm" {{ (($consumable->numRemaining() > 0 ) ? '' : ' disabled') }}>{{ trans('general.checkout') }}</a>
-    </div>
-    @endcan
-  </div> <!-- /.col-md-3-->
-</div> <!-- /.row-->
+                    <x-tabs.pane name="files">
+                        <x-table.files object_type="consumables" :object="$consumable"/>
+                    </x-tabs.pane>
 
-@stop
+                    <!-- start orders tab pane -->
+                    <x-tabs.pane name="orders">
+                        <x-table.orders name="consumableOrders" :route="route('api.order-items.index', ['item_type' => \App\Models\Consumable::class, 'item_id' => $consumable->id])"/>
+                    </x-tabs.pane>
+                    <!-- end orders tab pane -->
+
+                    <!-- start history tab pane -->
+                    <x-tabs.pane name="history">
+                        <x-table.history name="consumableHistory" :model="$consumable" :route="route('api.consumables.history', $consumable)" :hide_fields="['serial']"/>
+                    </x-tabs.pane>
+                    <!-- end history tab pane -->
+
+                </x-slot:tabpanes>
+
+            </x-tabs>
+        </x-page-column>
+
+        <x-page-column class="col-md-3">
+            <x-box class="side-box expanded">
+                <x-info-panel :infoPanelObj="$consumable" img_path="{{ app('consumables_upload_url') }}" :qr_code_url="route('qr_code/common', ['object_type' => 'consumables', 'id' => $consumable->id])">
+
+                    <x-slot:buttons>
+                        @if ($consumable->deleted_at)
+                            {{-- Soft-deleted: every write action stays
+                                 visually present but non-interactive.
+                                 Clone remains active because it produces a
+                                 fresh row and leaves the deleted parent
+                                 untouched. Restore takes the delete
+                                 button's slot in the info panel. --}}
+                            @can('update', $consumable)
+                                <a href="#" class="btn btn-sm btn-warning hidden-print disabled" data-tooltip="true" data-placement="top" data-title="{{ trans('general.item_deleted_warning', ['item_type' => trans('general.consumable')]) }}">
+                                    <x-icon type="edit" class="fa-fw" />
+                                </a>
+                            @endcan
+                            <x-button.clone :item="$consumable" :route="route('consumables.clone.create', $consumable->id)"/>
+                            @can('checkout', $consumable)
+                                <button type="button" class="btn btn-sm bg-maroon hidden-print disabled" data-tooltip="true" data-placement="top" data-title="{{ trans('general.item_deleted_warning', ['item_type' => trans('general.consumable')]) }}" disabled>
+                                    <x-icon type="checkout" class="fa-fw" />
+                                </button>
+                            @endcan
+                            @can('update', $consumable)
+                                <button type="button" class="btn btn-sm btn-primary adjust-quantity disabled" data-tooltip="true" data-placement="top" data-title="{{ trans('general.item_deleted_warning', ['item_type' => trans('general.consumable')]) }}" disabled>
+                                    <x-icon type="plus-minus" class="fa-fw" />
+                                    <span class="sr-only">{{ trans('general.adjust_quantity') }}</span>
+                                </button>
+                            @endcan
+                            <x-button.restore :item="$consumable" :route="route('consumables.restore', ['consumableId' => $consumable->id])" />
+                        @elseif ($consumable->archived)
+                            {{-- Archived (but live): mirror the deleted-row
+                                 treatment on edit, checkout, and delete.
+                                 Archived rows are retired from active
+                                 inventory, so interactive paths that would
+                                 extend their footprint stay visually
+                                 present but non-interactive. Clone and
+                                 adjust-quantity keep their existing
+                                 archived-aware behavior. --}}
+                            @can('update', $consumable)
+                                <a href="#" class="btn btn-sm btn-warning hidden-print disabled" data-tooltip="true" data-placement="top" data-title="{{ trans('general.archived_item_label', ['item_type' => trans('general.consumable')]) }}">
+                                    <x-icon type="edit" class="fa-fw" />
+                                </a>
+                            @endcan
+                            <x-button.clone :item="$consumable" :route="route('consumables.clone.create', $consumable->id)"/>
+                            @can('checkout', $consumable)
+                                <button type="button" class="btn btn-sm bg-maroon hidden-print disabled" data-tooltip="true" data-placement="top" data-title="{{ trans('general.archived_item_label', ['item_type' => trans('general.consumable')]) }}" disabled>
+                                    <x-icon type="checkout" class="fa-fw" />
+                                </button>
+                            @endcan
+                            @can('update', $consumable)
+                                <button type="button" class="btn btn-sm btn-primary adjust-quantity disabled" data-tooltip="true" data-placement="top" data-title="{{ trans('general.archived_item_label', ['item_type' => trans('general.consumable')]) }}" disabled>
+                                    <x-icon type="plus-minus" class="fa-fw" />
+                                    <span class="sr-only">{{ trans('general.adjust_quantity') }}</span>
+                                </button>
+                            @endcan
+                            @can('update', $consumable)
+                                {{-- Pull-right matches the delete button's
+                                     alignment on live rows, so unarchive
+                                     sits in the same slot in the info
+                                     panel without the destructive action
+                                     migrating around. --}}
+                                <form method="POST" action="{{ route('consumables.unarchive', $consumable) }}" class="inline pull-right">
+                                    @csrf
+                                    <button class="btn btn-sm btn-warning hidden-print" data-tooltip="true" data-placement="top" data-title="{{ trans('general.unarchive') }}">
+                                        <x-icon type="unarchive" class="fa-fw" />
+                                    </button>
+                                </form>
+                            @endcan
+                        @else
+                            <x-button.edit :item="$consumable" :route="route('consumables.edit', $consumable->id)"/>
+                            <x-button.clone :item="$consumable" :route="route('consumables.clone.create', $consumable->id)"/>
+                            @can('update', $consumable)
+                                @php $lastOrder = $consumable->lastOrderDefaults(); @endphp
+                                <button type="button"
+                                    class="btn btn-sm btn-primary adjust-quantity"
+                                    data-tooltip="true"
+                                    title="{{ trans('general.adjust_quantity') }}"
+                                    data-adjust-url="{{ route('consumables.adjust-quantity', $consumable) }}"
+                                    data-item-name="{{ e($consumable->name) }}"
+                                    data-available="{{ (int) $consumable->numRemaining() }}"
+                                    @if ($lastOrder && $lastOrder['unit_cost'] !== null) data-last-unit-cost="{{ $lastOrder['unit_cost'] }}" @endif
+                                    @if ($lastOrder && $lastOrder['currency'] !== null) data-last-currency="{{ e($lastOrder['currency']) }}" @endif
+                                >
+                                    <x-icon type="plus-minus" class="fa-fw" />
+                                    <span class="sr-only">{{ trans('general.adjust_quantity') }}</span>
+                                </button>
+                            @endcan
+                            <x-button.delete :item="$consumable"/>
+                            <x-button.checkout :item="$consumable" :route="route('consumables.checkout.show', $consumable->id)" />
+                        @endif
+                    </x-slot:buttons>
+
+                </x-info-panel>
+            </x-box>
+        </x-page-column>
+    </x-container>
+
+@endsection
 
 @section('moar_scripts')
-@include ('partials.bootstrap-table', ['exportFile' => 'consumable' . $consumable->name . '-export', 'search' => false])
-@stop
+    @can('files', $consumable)
+        <x-modals.upload-file item-type="consumables" :item-id="$consumable->id" />
+    @endcan
+
+    @can('update', $consumable)
+        <x-modals.adjust-quantity />
+    @endcan
+
+    @include ('partials.bootstrap-table', ['exportFile' => 'consumable-' . $consumable->name . '-export', 'search' => false])
+@endsection
+

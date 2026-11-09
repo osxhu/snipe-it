@@ -3,7 +3,6 @@
 namespace App\Events;
 
 use App\Models\CheckoutAcceptance;
-use App\Models\Contracts\Acceptable;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
@@ -18,6 +17,6 @@ class CheckoutAccepted
      */
     public function __construct(CheckoutAcceptance $acceptance)
     {
-        $this->acceptance       = $acceptance;
+        $this->acceptance = $acceptance;
     }
 }

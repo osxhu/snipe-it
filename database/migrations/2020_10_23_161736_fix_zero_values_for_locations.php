@@ -1,10 +1,8 @@
 <?php
 
-use Illuminate\Database\Migrations\Migration;
-use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
-use App\Models\User;
 use App\Models\Asset;
+use App\Models\User;
+use Illuminate\Database\Migrations\Migration;
 
 class FixZeroValuesForLocations extends Migration
 {
@@ -15,15 +13,14 @@ class FixZeroValuesForLocations extends Migration
      */
     public function up()
     {
-        App\Models\Asset::where('location_id', '=', '0')
+        Asset::where('location_id', '=', '0')
             ->update(['location_id' => null]);
 
-        App\Models\Asset::where('rtd_location_id', '=', '0')
+        Asset::where('rtd_location_id', '=', '0')
             ->update(['rtd_location_id' => null]);
 
-        App\Models\User::where('location_id', '=', '0')
+        User::where('location_id', '=', '0')
             ->update(['location_id' => null]);
-
     }
 
     /**

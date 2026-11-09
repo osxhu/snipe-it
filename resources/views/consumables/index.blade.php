@@ -1,55 +1,47 @@
 @extends('layouts/default')
 
-{{-- Page title --}}
-@section('title')
-{{ trans('general.consumables') }}
-@parent
+@section('title0')
+    @if (request('status') === 'Archived')
+        {{ trans('general.archived') }}
+    @elseif (request('status') === 'Deleted')
+        {{ ucfirst(trans('general.deleted')) }}
+    @endif
+    {{ trans('general.consumables') }}
 @stop
 
-@section('header_right')
-  @can('create', \App\Models\Consumable::class)
-  <a href="{{ route('consumables.create') }}" class="btn btn-primary pull-right"> {{ trans('general.create') }}</a>
-  @endcan
+{{-- Page title --}}
+@section('title')
+    @yield('title0')  @parent
 @stop
 
 {{-- Page content --}}
 @section('content')
-
-<div class="row">
-  <div class="col-md-12">
-
-    <div class="box box-default">
-      <div class="box-body">
-        <table
-                data-columns="{{ \App\Presenters\ConsumablePresenter::dataTableLayout() }}"
-                data-cookie-id-table="consumablesTable"
-                data-pagination="true"
-                data-id-table="consumablesTable"
-                data-search="true"
-                data-side-pagination="server"
-                data-show-columns="true"
-                data-show-export="true"
-                data-show-footer="true"
-                data-show-refresh="true"
-                data-sort-order="asc"
-                data-sort-name="name"
-                data-toolbar="#toolbar"
-                id="consumablesTable"
-                class="table table-striped snipe-table"
-                data-url="{{ route('api.consumables.index') }}"
-                data-export-options='{
-                "fileName": "export-consumables-{{ date('Y-m-d') }}",
-                "ignoreColumn": ["actions","image","change","checkbox","checkincheckout","icon"]
-                }'>
-        </table>
-
-      </div><!-- /.box-body -->
-    </div><!-- /.box -->
-
-  </div> <!-- /.col-md-12 -->
-</div> <!-- /.row -->
+    <x-container>
+        <x-box name="consumables" sr_only_title>
+            {{-- Remaining and % Remaining measure "available to give out,"
+                 which has no meaning for archived (retired) or deleted
+                 rows. Drop both columns on those two filter views. --}}
+            <x-table.consumables
+                name="consumables"
+                :route="route('api.consumables.index', ['status' => e(request('status'))])"
+                :presenter="\App\Presenters\ConsumablePresenter::dataTableLayout(
+                    request('status') === 'Deleted',
+                    in_array(request('status'), ['Archived', 'Deleted'], true) ? ['remaining', 'percent_remaining'] : [],
+                )"
+            />
+        </x-box>
+        <x-shiftclick/>
+    </x-container>
+@can('update', \App\Models\Consumable::class)
+    <x-modals.adjust-quantity />
+@endcan
 @stop
 
 @section('moar_scripts')
 @include ('partials.bootstrap-table', ['exportFile' => 'consumables-export', 'search' => true,'showFooter' => true, 'columns' => \App\Presenters\ConsumablePresenter::dataTableLayout()])
+
+<x-table.advanced-search
+    tableId="consumablesListingTable"
+    :model="\App\Models\Consumable::class"
+/>
 @stop

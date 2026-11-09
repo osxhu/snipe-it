@@ -1,25 +1,33 @@
 <?php
 
-return array(
+return [
 
-    'asset_tag'   	=> 'Marcação do Ativo',
-    'asset_model'       => 'Modelo',
-    'book_value'  	=> 'Valor',
-    'change' 		=> 'Entrada/Saída',
+    'asset_tag' => 'Marcação do Ativo',
+    'asset_model' => 'Modelo',
+    'assigned_to' => 'Atribuído a',
+    'book_value' => 'Valor Atual',
+    'change' => 'Entrada/Saída',
     'checkout_date' => 'Data de saída',
-    'checkoutto' 	=> 'check-out',
-    'diff' 			=> 'Diferença',
-    'dl_csv' 		=> 'Baixar CSV',
-    'eol' 			=> 'EOL',
-    'id'      		=> 'ID',
-    'location' 		=> 'Local',
-    'purchase_cost'	=> 'Custo',
-    'purchase_date'	=> 'Comprado',
-    'serial'   		=> 'Serial',
-    'status'   		=> 'Status',
-    'title'      	=> 'Ativo ',
-    'image'		=> 'Imagem do equipamento',
+    'checkoutto' => 'Disponibilizado',
+    'components_cost' => 'Custo Total de Componentes',
+    'current_value' => 'Valor Atual',
+    'diff' => 'Diferença',
+    'dl_csv' => 'Baixar CSV',
+    'eol' => 'EOL',
+    'id' => 'ID',
+    'last_checkin_date' => 'Data do Último Checkin',
+    'location' => 'Local',
+    'purchase_cost' => 'Custo',
+    'purchase_date' => 'Comprado',
+    'serial' => 'Serial',
+    'status' => 'Situação',
+    'title' => 'Ativo ',
+    'image' => 'Imagem do equipamento',
     'days_without_acceptance' => 'Dias sem que fosse aceito',
-    'monthly_depreciation' => 'Depreciação Mensal'
-
-);
+    'monthly_depreciation' => 'Depreciação Mensal',
+    'requesting_user' => 'Requested By',
+    'pending_requesters' => 'Also Requested By',
+    'requested_date' => 'Data de Solicitação',
+    'changed' => 'Alterado',
+    'icon' => 'Ícone',
+];

@@ -12,100 +12,208 @@
 @parent
 @stop
 
-{{-- Right header --}}
 @section('header_right')
-    @can('manage', \App\Models\Accessory::class)
-        <div class="dropdown pull-right">
-          <button class="btn btn-default dropdown-toggle" data-toggle="dropdown">
-              {{ trans('button.actions') }}
-              <span class="caret"></span>
-          </button>
-          <ul class="dropdown-menu pull-right" role="menu">
-            @if ($accessory->assigned_to != '')
-              @can('checkin', \App\Models\Accessory::class)
-              <li role="menuitem">
-                <a href="{{ route('checkin/accessory', $accessory->id) }}">{{ trans('admin/accessories/general.checkin') }}</a>
-              </li>
-              @endcan
-            @else
-              @can('checkout', \App\Models\Accessory::class)
-              <li role="menuitem">
-                <a href="{{ route('checkout/accessory', $accessory->id)  }}">{{ trans('admin/accessories/general.checkout') }}</a>
-              </li>
-              @endcan
-            @endif
-            @can('update', \App\Models\Accessory::class)
-            <li role="menuitem">
-              <a href="{{ route('accessories.edit', $accessory->id) }}">{{ trans('admin/accessories/general.edit') }}</a>
-            </li>
-            @endcan
-          </ul>
-        </div>
-    @endcan
-@stop
+    <x-button.info-panel-toggle/>
+@endsection
 
 {{-- Page content --}}
 @section('content')
+    <x-container columns="2">
+        @if ($accessory->deleted_at != '')
+            <x-page-column>
+                <x-callout type="warning" icon="warning" live="assertive">
+                    {{ trans('admin/accessories/general.accessory_deleted_warning') }}
+                </x-callout>
+            </x-page-column>
+        @elseif ($accessory->archived)
+            <x-page-column>
+                <x-callout type="warning" icon="warning" live="assertive">
+                    {{ trans('general.item_archived_warning', ['item_type' => trans('general.accessory')]) }}
+                </x-callout>
+            </x-page-column>
+        @endif
+
+        <x-page-column class="col-md-9 main-panel">
 
 
-<div class="row">
-  <div class="col-md-9">
+            <x-tabs>
+                <x-slot:tabnav>
+                    <x-tabs.checkedout-tab :item="$accessory" count="{{ $accessory->checkouts_count }}" />
+                    <x-tabs.files-tab :item="$accessory" count="{{ $accessory->uploads()->count() }}"/>
+                    <x-tabs.orders-tab count="{{ $accessory->orderItemsCount() }}"/>
+                    <x-tabs.history-tab count="{{ $accessory->history()->count() }}" :model="$accessory"/>
+                    @if ($accessory->deleted_at == '')
+                        <x-tabs.upload-tab :item="$accessory"/>
+                    @endif
+                </x-slot:tabnav>
 
-    <div class="box box-default">
-      <div class="box-body">
-        <div class="table table-responsive">
+                <x-slot:tabpanes>
 
-            <table
-                    data-cookie-id-table="usersTable"
-                    data-pagination="true"
-                    data-id-table="usersTable"
-                    data-search="true"
-                    data-side-pagination="server"
-                    data-show-columns="true"
-                    data-show-export="true"
-                    data-show-refresh="true"
-                    data-sort-order="asc"
-                    id="usersTable"
-                    class="table table-striped snipe-table"
-                    data-url="{{ route('api.accessories.checkedout', $accessory->id) }}"
-                    data-export-options='{
-                    "fileName": "export-accessories-{{ str_slug($accessory->name) }}-users-{{ date('Y-m-d') }}",
-                    "ignoreColumn": ["actions","image","change","checkbox","checkincheckout","icon"]
-                    }'>
-                <thead>
-                <tr>
-                    <th data-searchable="false" data-formatter="usersLinkFormatter" data-sortable="false" data-field="name">{{ trans('general.user') }}</th>
-                    <th data-searchable="false" data-sortable="false" data-field="checkout_notes">{{ trans('general.notes') }}</th>
-                    <th data-searchable="false" data-formatter="dateDisplayFormatter" data-sortable="false" data-field="last_checkout">{{ trans('admin/hardware/table.checkout_date') }}</th>
-                    <th data-searchable="false" data-sortable="false" data-field="actions" data-formatter="accessoriesInOutFormatter">{{ trans('table.actions') }}</th>
-                </tr>
-                </thead>
+                    <!-- start assigned tab pane -->
+                    <x-tabs.pane name="assigned">
+                        <x-slot:table_header>
+                            {{ trans('general.checked_out') }}
+                        </x-slot:table_header>
 
-            </table>
-        </div>
-      </div>
-    </div>
-  </div>
+                        @can('checkin', $accessory)
+                            <x-slot:bulkactions>
+                                <x-table.bulk-actions
+                                    name="accessoryCheckedOut"
+                                    :action_route="route('accessories.bulkcheckin.show')"
+                                    model_name="accessory_checkout"
+                                    :actions="[
+                                        'checkin' => ['label' => trans('general.checkin')],
+                                    ]"
+                                />
+                            </x-slot:bulkactions>
+                        @endcan
+
+                        <x-table
+                            name="accessoryCheckedOut" api_url="{{ route('api.accessories.checkedout', $accessory->id) }}"
+                            :presenter="\App\Presenters\AccessoryPresenter::assignedDataTableLayout()"
+                            export_filename="export-{{ str_slug($accessory->name) }}-assets-{{ date('Y-m-d') }}"
+                        />
+
+                    </x-tabs.pane>
+                    <!-- end assigned tab pane -->
+
+                    <!-- start orders tab pane -->
+                    <x-tabs.pane name="orders">
+                        <x-table.orders name="accessoryOrders" :route="route('api.order-items.index', ['item_type' => \App\Models\Accessory::class, 'item_id' => $accessory->id])"/>
+                    </x-tabs.pane>
+                    <!-- end orders tab pane -->
+
+                    <!-- start history tab pane -->
+                    <x-tabs.pane name="history">
+                        <x-table.history name="accessoryHistory" :model="$accessory" :route="route('api.accessories.history', $accessory)" :hide_fields="['serial']"/>
+                    </x-tabs.pane>
+                    <!-- end history tab pane -->
+
+                    <!-- start files tab pane -->
+                    <x-tabs.pane name="files">
+                        <x-table.files object_type="accessories" :object="$accessory"/>
+                    </x-tabs.pane>
+                    <!-- end files tab pane -->
+                </x-slot:tabpanes>
+
+            </x-tabs>
+
+        </x-page-column>
+
+        <x-page-column class="col-md-3">
+            <x-box class="side-box expanded">
+                <x-info-panel :infoPanelObj="$accessory" img_path="{{ app('accessories_upload_url') }}" :qr_code_url="route('qr_code/common', ['object_type' => 'accessories', 'id' => $accessory->id])">
+                    <x-slot:buttons>
+                        @if ($accessory->deleted_at != '')
+                            {{-- Soft-deleted: keep every action visually
+                                 present but non-interactive. x-button.edit
+                                 hides itself on deleted rows, so render
+                                 disabled stand-ins inline. Clone stays
+                                 active since cloning a deleted accessory
+                                 produces a new row without touching the
+                                 deleted parent. --}}
+                            @can('update', $accessory)
+                                <a href="#" class="btn btn-sm btn-warning hidden-print disabled" data-tooltip="true" data-placement="top" data-title="{{ trans('admin/accessories/general.accessory_deleted_warning') }}">
+                                    <x-icon type="edit" class="fa-fw" />
+                                </a>
+                            @endcan
+                            <x-button.clone :item="$accessory" :route="route('clone/accessories', $accessory->id)"/>
+                            @can('checkout', $accessory)
+                                <button type="button" class="btn btn-sm bg-maroon hidden-print disabled" data-tooltip="true" data-placement="top" data-title="{{ trans('admin/accessories/general.accessory_deleted_warning') }}" disabled>
+                                    <x-icon type="checkout" class="fa-fw" />
+                                </button>
+                            @endcan
+                            @can('update', $accessory)
+                                <button type="button" class="btn btn-sm btn-primary adjust-quantity disabled" data-tooltip="true" data-placement="top" data-title="{{ trans('admin/accessories/general.accessory_deleted_warning') }}" disabled>
+                                    <x-icon type="plus-minus" class="fa-fw" />
+                                    <span class="sr-only">{{ trans('general.adjust_quantity') }}</span>
+                                </button>
+                            @endcan
+                            <x-button.restore :item="$accessory" :route="route('accessories.restore', ['accessoryId' => $accessory->id])" />
+                        @elseif ($accessory->archived)
+                            {{-- Archived (but live): mirror the deleted-row
+                                 treatment on edit, checkout, and delete.
+                                 Archived rows are retired from active
+                                 inventory, so interactive paths that would
+                                 extend their footprint stay visually
+                                 present but non-interactive. Clone and
+                                 adjust-quantity keep their existing
+                                 archived-aware behavior. --}}
+                            @can('update', $accessory)
+                                <a href="#" class="btn btn-sm btn-warning hidden-print disabled" data-tooltip="true" data-placement="top" data-title="{{ trans('general.archived_item_label', ['item_type' => trans('general.accessory')]) }}">
+                                    <x-icon type="edit" class="fa-fw" />
+                                </a>
+                            @endcan
+                            <x-button.clone :item="$accessory" :route="route('clone/accessories', $accessory->id)"/>
+                            @can('checkout', $accessory)
+                                <button type="button" class="btn btn-sm bg-maroon hidden-print disabled" data-tooltip="true" data-placement="top" data-title="{{ trans('general.archived_item_label', ['item_type' => trans('general.accessory')]) }}" disabled>
+                                    <x-icon type="checkout" class="fa-fw" />
+                                </button>
+                            @endcan
+                            @can('update', $accessory)
+                                <button type="button" class="btn btn-sm btn-primary adjust-quantity disabled" data-tooltip="true" data-placement="top" data-title="{{ trans('general.archived_item_label', ['item_type' => trans('general.accessory')]) }}" disabled>
+                                    <x-icon type="plus-minus" class="fa-fw" />
+                                    <span class="sr-only">{{ trans('general.adjust_quantity') }}</span>
+                                </button>
+                            @endcan
+                            @can('update', $accessory)
+                                {{-- Pull-right matches the delete button's
+                                     alignment on live rows, so unarchive
+                                     sits in the same slot in the info
+                                     panel without the destructive action
+                                     migrating around. --}}
+                                <form method="POST" action="{{ route('accessories.unarchive', $accessory) }}" class="inline pull-right">
+                                    @csrf
+                                    <button class="btn btn-sm btn-warning hidden-print" data-tooltip="true" data-placement="top" data-title="{{ trans('general.unarchive') }}">
+                                        <x-icon type="unarchive" class="fa-fw" />
+                                    </button>
+                                </form>
+                            @endcan
+                        @else
+                            <x-button.edit :item="$accessory" :route="route('accessories.edit', $accessory->id)"/>
+                            <x-button.clone :item="$accessory" :route="route('clone/accessories', $accessory->id)"/>
+                            <x-button.checkout permission="checkout" :item="$accessory" :route="route('accessories.checkout.show', $accessory->id)" />
+                            @can('update', $accessory)
+                                @php
+                                    $lastOrder = $accessory->lastOrderDefaults();
+                                @endphp
+                                <button type="button"
+                                    class="btn btn-sm btn-primary adjust-quantity"
+                                    data-tooltip="true"
+                                    title="{{ trans('general.adjust_quantity') }}"
+                                    data-adjust-url="{{ route('accessories.adjust-quantity', $accessory) }}"
+                                    data-item-name="{{ e($accessory->name) }}"
+                                    data-available="{{ (int) $accessory->numRemaining() }}"
+                                    @if ($lastOrder && $lastOrder['unit_cost'] !== null) data-last-unit-cost="{{ $lastOrder['unit_cost'] }}" @endif
+                                    @if ($lastOrder && $lastOrder['currency'] !== null) data-last-currency="{{ e($lastOrder['currency']) }}" @endif
+                                >
+                                    <x-icon type="plus-minus" class="fa-fw" />
+                                    <span class="sr-only">{{ trans('general.adjust_quantity') }}</span>
+                                </button>
+                            @endcan
+                            <x-button.delete :item="$accessory" />
+                        @endif
+                    </x-slot:buttons>
+                </x-info-panel>
+            </x-box>
+
+        </x-page-column>
+    </x-container>
+
+@endsection
 
 
-  <!-- side address column -->
-  <div class="col-md-3">
-
-      @if ($accessory->image!='')
-          <div class="col-md-12 text-center" style="padding-bottom: 15px;">
-              <a href="{{ Storage::disk('public')->url('accessories/'.e($accessory->image)) }}" data-toggle="lightbox"><img src="{{ Storage::disk('public')->url('accessories/'.e($accessory->image)) }}" class="img-responsive img-thumbnail" alt="{{ $accessory->name }}"></a>
-          </div>
-      @endif
-
-      <div class="text-center">
-          @can('checkout', \App\Models\Accessory::class)
-              <a href="{{ route('checkout/accessory', $accessory->id) }}" style="margin-right:5px;" class="btn btn-primary btn-sm" {{ (($accessory->numRemaining() > 0 ) ? '' : ' disabled') }}>{{ trans('general.checkout') }}</a>
-          @endcan
-      </div>
-  </div>
-</div>
-@stop
 
 @section('moar_scripts')
+    @if ($accessory->deleted_at == '')
+        @can('files', $accessory)
+            <x-modals.upload-file item-type="accessories" :item-id="$accessory->id" />
+        @endcan
+
+        @can('update', $accessory)
+            <x-modals.adjust-quantity />
+        @endcan
+    @endif
+
 @include ('partials.bootstrap-table')
-@stop
+@endsection

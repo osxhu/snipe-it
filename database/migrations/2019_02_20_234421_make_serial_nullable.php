@@ -1,8 +1,8 @@
 <?php
 
-use Illuminate\Support\Facades\Schema;
-use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
 
 class MakeSerialNullable extends Migration
 {
@@ -13,8 +13,8 @@ class MakeSerialNullable extends Migration
      */
     public function up()
     {
-        $platform = Schema::getConnection()->getDoctrineSchemaManager()->getDatabasePlatform();
-        $platform->registerDoctrineTypeMapping('enum', 'string');
+        // $platform = Schema::getConnection()->getDoctrineSchemaManager()->getDatabasePlatform();
+        // $platform->registerDoctrineTypeMapping('enum', 'string');
 
         Schema::table('assets', function (Blueprint $table) {
             $table->string('serial')->nullable()->default(null)->change();

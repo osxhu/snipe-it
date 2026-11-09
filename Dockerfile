@@ -1,8 +1,8 @@
-FROM ubuntu:focal
-LABEL maintainer Brady Wetherington <bwetherington@grokability.com>
+FROM ubuntu:24.04
+LABEL maintainer="Brady Wetherington <bwetherington@grokability.com>"
 
 # No need to add `apt-get clean` here, reference:
-# - https://github.com/snipe/snipe-it/pull/9201
+# - https://github.com/grokability/snipe-it/pull/9201
 # - https://docs.docker.com/develop/develop-images/dockerfile_best-practices/#apt-get
 
 RUN export DEBIAN_FRONTEND=noninteractive; \
@@ -14,51 +14,49 @@ RUN export DEBIAN_FRONTEND=noninteractive; \
 apt-utils \
 apache2 \
 apache2-bin \
-libapache2-mod-php7.4 \
-php7.4-curl \
-php7.4-ldap \
-php7.4-mysql \
-php7.4-gd \
-php7.4-xml \
-php7.4-mbstring \
-php7.4-zip \
-php7.4-bcmath \
+libapache2-mod-php8.3 \
+php8.3-curl \
+php8.3-ldap \
+php8.3-mysql \
+php8.3-gd \
+php8.3-xml \
+php8.3-mbstring \
+php8.3-zip \
+php8.3-bcmath \
+php8.3-redis \
+php-memcached \
 patch \
 curl \
 wget  \
 vim \
 git \
 cron \
-mysql-client \
+mariadb-client \
 supervisor \
 cron \
 gcc \
 make \
 autoconf \
 libc-dev \
+libldap-common \
 pkg-config \
-libmcrypt-dev \
-php7.4-dev \
+php8.3-dev \
 ca-certificates \
 unzip \
+dnsutils \
 && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 
 RUN curl -L -O https://github.com/pear/pearweb_phars/raw/master/go-pear.phar
 RUN php go-pear.phar
 
-RUN pecl install mcrypt-1.0.3
-
-RUN bash -c "echo extension=/usr/lib/php/20190902/mcrypt.so > /etc/php/7.4/mods-available/mcrypt.ini"
-
-RUN phpenmod mcrypt
 RUN phpenmod gd
 RUN phpenmod bcmath
 
-RUN sed -i 's/variables_order = .*/variables_order = "EGPCS"/' /etc/php/7.4/apache2/php.ini
-RUN sed -i 's/variables_order = .*/variables_order = "EGPCS"/' /etc/php/7.4/cli/php.ini
+RUN sed -i 's/variables_order = .*/variables_order = "EGPCS"/' /etc/php/8.3/apache2/php.ini
+RUN sed -i 's/variables_order = .*/variables_order = "EGPCS"/' /etc/php/8.3/cli/php.ini
 
-RUN useradd -m --uid 1000 --gid 50 docker
+RUN useradd -m --uid 10000 --gid 50 docker
 
 RUN echo export APACHE_RUN_USER=docker >> /etc/apache2/envvars
 RUN echo export APACHE_RUN_GROUP=staff >> /etc/apache2/envvars
@@ -76,6 +74,17 @@ RUN a2ensite 001-default-ssl.conf
 COPY . /var/www/html
 
 RUN a2enmod rewrite
+
+# Apache Limits Defaults
+COPY docker/apache-limits.conf /etc/apache2/conf-available/limits.conf
+RUN a2enconf limits
+
+# Suppress Apache version + OS from the Server response header and from
+# the default error-page footer.
+RUN sed -i 's/^ServerTokens.*/ServerTokens Prod/' /etc/apache2/conf-available/security.conf \
+    && sed -i 's/^ServerSignature.*/ServerSignature Off/' /etc/apache2/conf-available/security.conf
+
+COPY docker/column-statistics.cnf /etc/mysql/conf.d/column-statistics.cnf
 
 ############ INITIAL APPLICATION SETUP #####################
 
@@ -99,7 +108,7 @@ RUN \
       && ln -fs "/var/lib/snipeit/keys/ldap_client_tls.cert" "/var/www/html/storage/ldap_client_tls.cert" \
       && ln -fs "/var/lib/snipeit/keys/ldap_client_tls.key" "/var/www/html/storage/ldap_client_tls.key" \
       && chown docker "/var/lib/snipeit/keys/" \
-      && chown -h docker "/var/www/html/storage/" \
+      && chown -Rh docker "/var/www/html/storage/" \
       && chmod +x /var/www/html/artisan \
       && echo "Finished setting up application in /var/www/html"
 
@@ -110,7 +119,7 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
 # Get dependencies
 USER docker
-RUN composer install --no-dev --working-dir=/var/www/html
+RUN COMPOSER_CACHE_DIR=/dev/null composer install --no-dev --working-dir=/var/www/html && rm -rf /var/www/html/vendor/*/*/.git
 USER root
 
 ############### APPLICATION INSTALL/INIT #################

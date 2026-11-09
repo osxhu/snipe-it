@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+{{-- TODO: Translate --}}
 <head>
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
@@ -8,7 +9,7 @@
     <title>{{ config('app.name') }} - Authorization</title>
 
     {{-- stylesheets --}}
-    <link rel="stylesheet" href="{{ url(mix('css/all.css')) }}">
+    <link rel="stylesheet" href="{{ url(mix('css/dist/all.css')) }}">
     <style>
         .passport-authorize .container {
             margin-top: 30px;
@@ -63,7 +64,7 @@
 
                         <div class="buttons">
                             <!-- Authorize Button -->
-                            <form method="post" action="/oauth/authorize">
+                            <form method="post" action="{{ url('/oauth/authorize') }}">
                                 {{ csrf_field() }}
 
                                 <input type="hidden" name="state" value="{{ $request->state }}">
@@ -72,7 +73,7 @@
                             </form>
 
                             <!-- Cancel Button -->
-                            <form method="post" action="/oauth/authorize">
+                            <form method="post" action="{{ url('/oauth/authorize') }}">
                                 {{ csrf_field() }}
                                 {{ method_field('DELETE') }}
 

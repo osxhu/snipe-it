@@ -1,11 +1,20 @@
 <?php
 
-return array(
-    'checkout'                          => '领取耗材给使用者',
-    'consumable_name'                   => '耗材名称',
-    'create'                            => '创建耗材',
-    'item_no'                           => '项目编号',
-    'remaining' 			            => '剩余',
-    'total' 			                => '总计',
-    'update'                            => '更新耗材',
-);
+return [
+    'checkout' => '签出耗材给使用者',
+    'consumable_name' => '耗材名称',
+    'create' => '创建耗材',
+    'item_no' => '项目编号',
+    'remaining' => '剩余',
+    'total' => '总计',
+    'update' => '更新耗材',
+    'inventory_warning' => '该耗材的库存低于最低数量 :min_count',
+    'exclude_deleted' => 'Exclude Deleted Consumables',
+    'include_deleted' => 'Include Deleted Consumables',
+    'only_deleted' => 'Only Deleted Consumables',
+    'mark_consumed' => 'Mark as consumed',
+    'bulk_consume' => 'Mark selected as consumed',
+    'bulk_consume_warn' => 'You are about to mark :count distribution as consumed.|You are about to mark :count distributions as consumed.',
+    'bulk_consume_help' => 'This closes the distribution lifecycle so it no longer counts against the parent consumable\'s outstanding total. This action cannot be undone.',
+    'consumed_at' => 'Consumed on',
+];

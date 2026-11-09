@@ -1,5 +1,33 @@
 <?php
 
-return array(
-    'info'   => 'Selecciona las opciones de tu informe de Equipos.'
-);
+return [
+    'info' => 'Seleccione las opciones que desee para su informe de activos.',
+    'deleted_user' => 'Usuario eliminado',
+    'send_reminder' => 'Enviar recordatorio',
+    'cannot_send_reminder' => 'El usuario ha sido eliminado o no tiene una dirección de correo electrónico, por lo que no puede recibir un recordatorio',
+    'reminder_sent' => 'Recordatorio enviado',
+    'reminder_sent_count' => '{0}No reminders sent|{1}Sent one reminder|[2,*]Sent :count reminders',
+    'acceptance_deleted' => 'Solicitud de aceptación eliminada',
+    'acceptance_request' => 'Solicitud de aceptación',
+    'custom_export' => [
+        'asset_company' => 'Asset Company',
+        'asset_serial' => 'Asset Serial',
+        'assigned_asset_tag' => 'Checked Out Asset Tag',
+        'user_address' => 'Dirección de usuario',
+        'user_company' => 'Compañía de Usuario',
+        'user_city' => 'Ciudad del usuario',
+        'user_state' => 'Estado del usuario',
+        'user_country' => 'País del usuario',
+        'user_zip' => 'Código postal del usuario',
+        'target_notes' => 'Notas',
+    ],
+    'open_saved_template' => 'Abrir plantilla guardada',
+    'save_template' => 'Guardar plantilla',
+    'select_a_template' => 'Seleccione una plantilla',
+    'template_name' => 'Nombre de la plantilla',
+    'update_template' => 'Actualizar plantilla',
+    'share_template' => 'Compartir esta plantilla',
+    'template_shared' => 'Plantilla compartida con usted',
+    'template_shared_with_others' => 'Plantilla compartida con otros',
+    'template_not_shared' => 'Plantilla no compartida con otros',
+];

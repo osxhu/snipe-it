@@ -1,8 +1,8 @@
 <?php
 
-use Illuminate\Support\Facades\Schema;
-use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
 
 class SetAssetArchivedToZeroDefault extends Migration
 {
@@ -13,11 +13,11 @@ class SetAssetArchivedToZeroDefault extends Migration
      */
     public function up()
     {
-        $platform = Schema::getConnection()->getDoctrineSchemaManager()->getDatabasePlatform();
-        $platform->registerDoctrineTypeMapping('enum', 'string');
+        // $platform = Schema::getConnection()->getDoctrineSchemaManager()->getDatabasePlatform();
+        // $platform->registerDoctrineTypeMapping('enum', 'string');
 
         Schema::table('assets', function (Blueprint $table) {
-            $table->boolean('archived')->default(0)->change();
+            $table->boolean('archived')->default(0)->nullable()->change();
         });
     }
 

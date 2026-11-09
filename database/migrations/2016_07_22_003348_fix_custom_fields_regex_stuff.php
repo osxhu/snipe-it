@@ -1,6 +1,6 @@
 <?php
 
-use Illuminate\Database\Schema\Blueprint;
+use App\Models\CustomField;
 use Illuminate\Database\Migrations\Migration;
 
 class FixCustomFieldsRegexStuff extends Migration
@@ -20,42 +20,41 @@ class FixCustomFieldsRegexStuff extends Migration
      */
     public function up()
     {
-        foreach(\App\Models\CustomField::all() as $custom_field) {
+        foreach (CustomField::all() as $custom_field) {
 
             // Handle alphanumeric
             if (stripos($custom_field->format, 'ALPHA') !== false) {
-                $custom_field->format='alpha';
+                $custom_field->format = 'alpha';
 
-            // Numeric
+                // Numeric
             } elseif (stripos($custom_field->format, 'NUMERIC') !== false) {
-                $custom_field->format='numeric';
+                $custom_field->format = 'numeric';
 
-            // IP
+                // IP
             } elseif (stripos($custom_field->format, 'IP') !== false) {
-                $custom_field->format='ip';
+                $custom_field->format = 'ip';
 
-            // Email
+                // Email
             } elseif (stripos($custom_field->format, 'EMAIL') !== false) {
-                $custom_field->format='email';
+                $custom_field->format = 'email';
 
-            // MAC
+                // MAC
             } elseif (stripos($custom_field->format, 'regex:/^[a-fA-F0-9]{2}:[a-fA-F0-9]{2}:[a-fA-F0-9]{2}:[a-fA-F0-9]{2}:[a-fA-F0-9]{2}:[a-fA-F0-9]{2}$/') !== false) {
-                $custom_field->format='regex:/^[a-fA-F0-9]{2}:[a-fA-F0-9]{2}:[a-fA-F0-9]{2}:[a-fA-F0-9]{2}:[a-fA-F0-9]{2}:[a-fA-F0-9]{2}$/';
+                $custom_field->format = 'regex:/^[a-fA-F0-9]{2}:[a-fA-F0-9]{2}:[a-fA-F0-9]{2}:[a-fA-F0-9]{2}:[a-fA-F0-9]{2}:[a-fA-F0-9]{2}$/';
 
-            // Date
+                // Date
             } elseif (stripos($custom_field->format, 'DATE') !== false) {
-                $custom_field->format='date';
+                $custom_field->format = 'date';
 
-
-            // URL
+                // URL
             } elseif (stripos($custom_field->format, 'URL') !== false) {
-                $custom_field->format='url';
+                $custom_field->format = 'url';
 
-            // ANY
+                // ANY
             } elseif (stripos($custom_field->format, 'ANY') !== false) {
-                $custom_field->format='';
+                $custom_field->format = '';
 
-            // Fix any custom regexes
+                // Fix any custom regexes
             } else {
                 $tmp_custom = str_replace('regex:/^', '', $custom_field->format);
                 $tmp_custom = str_replace('$/', '', $tmp_custom);

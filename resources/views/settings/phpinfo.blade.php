@@ -2,15 +2,9 @@
 
 {{-- Page title --}}
 @section('title')
-    PHP Info
+    {{ trans('admin/settings/general.php_info') }}
     @parent
 @stop
-
-@section('header_right')
-    <a href="{{ route('settings.index') }}" class="btn btn-default"> {{ trans('general.back') }}</a>
-@stop
-
-
 
 {{-- Page content --}}
 @section('content')
@@ -19,7 +13,7 @@
         <div class="col-md-12">
             <div class="box box-default">
                 <div class="box-header">
-                    <h2 class="box-title">PHP Info</h2>
+                    <h2 class="box-title">{{ trans('admin/settings/general.php_info') }}</h2>
                 </div>
                 <div class="box-body">
 
@@ -27,18 +21,18 @@
                     ob_start();
                     phpinfo();
 
-                    preg_match ('%<style type="text/css">(.*?)</style>.*?(<body>.*</body>)%s', ob_get_clean(), $matches);
+                    preg_match('%<style type="text/css">(.*?)</style>.*?(<body>.*</body>)%s', ob_get_clean(), $matches);
 
-                    # $matches [1]; # Style information
-                    # $matches [2]; # Body information
-                        
+                    // $matches [1]; # Style information
+                    // $matches [2]; # Body information
+
                     echo "<div class='phpinfodisplay'><style type='text/css'>\n",
-                    join( "\n",
+                    implode("\n",
                         array_map(
                             function ($i) {
-                                return ".phpinfodisplay " . preg_replace( "/,/", ",.phpinfodisplay ", $i );
+                                return '.phpinfodisplay '.preg_replace('/,/', ',.phpinfodisplay ', $i);
                             },
-                            preg_split( '/\n/', $matches[1] )
+                            preg_split('/\n/', $matches[1])
                         )
                     ),
                     "</style>\n",
