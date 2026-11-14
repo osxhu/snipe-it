@@ -1,10 +1,8 @@
 <?php
 
-use Illuminate\Support\Facades\Schema;
-use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Database\Migrations\Migration;
 use App\Models\Category;
 use App\Models\License;
+use Illuminate\Database\Migrations\Migration;
 
 class AddUpdateLicenseCategory extends Migration
 {
@@ -25,7 +23,6 @@ class AddUpdateLicenseCategory extends Migration
             License::whereNull('category_id')->withTrashed()
                 ->update(['category_id' => $category->id]);
         }
-
     }
 
     /**
@@ -35,8 +32,7 @@ class AddUpdateLicenseCategory extends Migration
      */
     public function down()
     {
-
-        App\Models\Category::where('name', 'Misc Software')->forceDelete();
+        Category::where('name', 'Misc Software')->forceDelete();
 
         License::whereNotNull('category_id')
             ->update(['category_id' => null]);

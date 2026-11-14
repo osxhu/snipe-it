@@ -1,6 +1,8 @@
 <?php
 
-use Illuminate\Http\Request;
+use App\Http\Controllers\Api;
+use Illuminate\Support\Facades\Route;
+use Laravel\Passport\Client;
 
 /*
 |--------------------------------------------------------------------------
@@ -13,12 +15,9 @@ use Illuminate\Http\Request;
 |
 */
 
+Route::group(['prefix' => 'v1', 'middleware' => ['api', 'api-throttle:api']], function () {
 
-Route::group(['prefix' => 'v1','namespace' => 'Api', 'middleware' => 'auth:api'], function () {
-
-
-    Route::get('/', function() {
-
+    Route::get('/', function () {
         return response()->json(
             [
                 'status' => 'error',
@@ -27,992 +26,1669 @@ Route::group(['prefix' => 'v1','namespace' => 'Api', 'middleware' => 'auth:api']
             ], 404);
     });
 
+    Route::withoutMiddleware(['api'])->get('/client', function () {
+        $client = Client::firstOrCreate(
+            ['redirect' => 'com.grokability.snipeitmobile://home'],
+            [
+                'name' => 'Snipe-IT Mobile App',
+                'user_id' => null,
+                'secret' => '',
+                'personal_access_client' => false,
+                'password_client' => false,
+                'revoked' => false,
+            ]);
 
+        return response()->json([
+            'client_id' => $client->id,
+        ]);
+    });
 
+    /**
+     * OrderItems (acquisition line-items). Standard REST index, filter
+     * by item_type + item_id for a specific parent, or asset_model_id
+     * for the AssetModel aggregate.
+     */
+    Route::get('order-items',
+        [Api\OrderItemsController::class, 'index']
+    )->name('api.order-items.index');
 
+    /**
+     * Bearer-authenticated self-logout. Revokes the access token that
+     * authenticated this request and any refresh token issued with it,
+     * so a client (custom SPA / mobile app) can call this on logout
+     * and be sure the token cannot silently renew. See
+     * ProfileController::logout for the design rationale and why we
+     * ship this rather than pointing callers at Passport's session-
+     * cookie-shaped DELETE /oauth/tokens/{id} route.
+     */
+    Route::post('logout', [Api\ProfileController::class, 'logout'])
+        ->name('api.logout');
+
+    Route::get('requests', [Api\CheckoutRequest::class, 'index'])
+        ->name('api.requests.index');
+
+    Route::get('unaccepted-acceptances', [Api\UnacceptedAcceptancesController::class, 'index'])
+        ->name('api.unaccepted-acceptances.index');
+
+    Route::post('unaccepted-acceptances/send-reminders', [Api\UnacceptedAcceptancesController::class, 'sendReminders'])
+        ->name('api.unaccepted-acceptances.send-reminders');
+
+    /**
+     * Account routes
+     */
     Route::group(['prefix' => 'account'], function () {
 
-        Route::get('requestable/hardware',
+        Route::get('assets',
             [
-                'as' => 'api.assets.requestable',
-                'uses' => 'AssetsController@requestable'
+                Api\ProfileController::class,
+                'assets',
             ]
-        );
+        )->name('api.account.assets');
 
         Route::get('requests',
             [
-                'as' => 'api.assets.requested',
-                'uses' => 'ProfileController@requestedAssets'
+                Api\ProfileController::class,
+                'requestedAssets',
             ]
-        );
+        )->name('api.assets.requested');
 
-    });
+        Route::get('eulas',
+            [
+                Api\ProfileController::class,
+                'eulas',
+            ]
+        )->name('api.self.eulas');
 
-    /*--- Accessories API ---*/    
+        Route::post('request/{asset}', [Api\CheckoutRequest::class, 'store'])->name('api.assets.requests.store');
+        Route::post('request/{asset}/cancel', [Api\CheckoutRequest::class, 'destroy'])->name('api.assets.requests.destroy');
+
+        // Consumable + Component request/cancel. Kept as type-prefixed
+        // routes rather than a polymorphic /request/{type}/{id} pattern
+        // so the existing /request/{asset} URL stays backwards-compat
+        // for API consumers already wired to it.
+        Route::post('request/consumable/{consumable}', [Api\CheckoutRequest::class, 'storeConsumable'])
+            ->name('api.consumables.requests.store');
+        Route::post('request/consumable/{consumable}/cancel', [Api\CheckoutRequest::class, 'destroyConsumable'])
+            ->name('api.consumables.requests.destroy');
+        Route::post('request/component/{component}', [Api\CheckoutRequest::class, 'storeComponent'])
+            ->name('api.components.requests.store');
+        Route::post('request/component/{component}/cancel', [Api\CheckoutRequest::class, 'destroyComponent'])
+            ->name('api.components.requests.destroy');
+        Route::post('request/license/{license}', [Api\CheckoutRequest::class, 'storeLicense'])
+            ->name('api.licenses.requests.store');
+        Route::post('request/license/{license}/cancel', [Api\CheckoutRequest::class, 'destroyLicense'])
+            ->name('api.licenses.requests.destroy');
+
+        Route::get('requestable/hardware',
+            [
+                Api\AssetsController::class,
+                'requestable',
+            ]
+        )->name('api.assets.requestable');
+
+        // Requestable-item endpoints for the /account/requestable
+        // tabs. Each returns just the requestable rows the caller can
+        // see (RequestableFoos() scope + CompanyableTrait global scope
+        // handle the FMCS + location gating).
+        Route::get('requestable/models',
+            [Api\AssetModelsController::class, 'requestable']
+        )->name('api.assetmodels.requestable');
+        Route::get('requestable/accessories',
+            [Api\AccessoriesController::class, 'requestable']
+        )->name('api.accessories.requestable');
+        Route::get('requestable/consumables',
+            [Api\ConsumablesController::class, 'requestable']
+        )->name('api.consumables.requestable');
+        Route::get('requestable/components',
+            [Api\ComponentsController::class, 'requestable']
+        )->name('api.components.requestable');
+        Route::get('requestable/licenses',
+            [Api\LicensesController::class, 'requestable']
+        )->name('api.licenses.requestable');
+
+        Route::post('personal-access-tokens',
+            [
+                Api\ProfileController::class,
+                'createApiToken',
+            ]
+        )->name('api.personal-access-token.create');
+
+        Route::get('personal-access-tokens',
+            [
+                Api\ProfileController::class,
+                'showApiTokens',
+            ]
+        )->name('api.personal-access-token.index');
+
+        Route::delete('personal-access-tokens/{tokenId}',
+            [
+                Api\ProfileController::class,
+                'deleteApiToken',
+            ]
+        )->name('api.personal-access-token.delete');
+
+    }); // end account group
+
+    /**
+     * Accessories routes
+     */
     Route::group(['prefix' => 'accessories'], function () {
+
+        Route::get('{accessory}/history',
+            [
+                Api\AccessoriesController::class,
+                'history',
+            ]
+        )->name('api.accessories.history')->withTrashed();
 
         Route::get('{accessory}/checkedout',
             [
-                'as' => 'api.accessories.checkedout',
-                'uses' => 'AccessoriesController@checkedout'
+                Api\AccessoriesController::class,
+                'checkedout',
             ]
-        );
-
-        Route::get('selectlist',
-            [
-                'as' => 'api.accessories.selectlist',
-                'uses'=> 'AccessoriesController@selectlist'
-            ]
-        );
-    });
-
-    // Accessories group
-    Route::resource('accessories', 'AccessoriesController',
-        ['names' =>
-            [
-                'index' => 'api.accessories.index',
-                'show' => 'api.accessories.show',
-                'update' => 'api.accessories.update',
-                'store' => 'api.accessories.store',
-                'destroy' => 'api.accessories.destroy'
-            ],
-            'except' => ['create', 'edit'],
-            'parameters' => ['accessory' => 'accessory_id']
-        ]
-    );
-
-    // Accessories resource
-
-    Route::group(['prefix' => 'accessories'], function () {
-
-        Route::get('{accessory}/checkedout',
-            [
-                'as' => 'api.accessories.checkedout',
-                'uses' => 'AccessoriesController@checkedout'
-            ]
-        );
+        )->name('api.accessories.checkedout');
 
         Route::post('{accessory}/checkout',
             [
-                'as' => 'api.accessories.checkout',
-                'uses' => 'AccessoriesController@checkout'
+                Api\AccessoriesController::class,
+                'checkout',
             ]
-        );
+        )->name('api.accessories.checkout');
 
         Route::post('{accessory}/checkin',
             [
-                'as' => 'api.accessories.checkin',
-                'uses' => 'AccessoriesController@checkin'
+                Api\AccessoriesController::class,
+                'checkin',
             ]
-        );
+        )->name('api.accessories.checkin');
 
-    }); // Accessories group
+        Route::post('{accessory}/adjust-quantity',
+            [
+                Api\AccessoriesController::class,
+                'adjustQuantity',
+            ]
+        )->name('api.accessories.adjust-quantity');
 
+        Route::get('selectlist',
+            [
+                Api\AccessoriesController::class,
+                'selectlist',
+            ]
+        )->name('api.accessories.selectlist');
 
-    /*--- Categories API ---*/
+        Route::post('{id}/restore',
+            [Api\AccessoriesController::class, 'restore']
+        )->where('id', '[0-9]+')->name('api.accessories.restore');
 
+        Route::post('{accessory}/unarchive',
+            [Api\AccessoriesController::class, 'unarchive']
+        )->where('accessory', '[0-9]+')->name('api.accessories.unarchive');
+
+        Route::post('bulkedit',
+            [Api\AccessoriesController::class, 'bulkEdit']
+        )->name('api.accessories.bulkedit');
+
+        Route::post('bulkdelete',
+            [Api\AccessoriesController::class, 'bulkDestroy']
+        )->name('api.accessories.bulkdelete');
+
+        Route::post('bulkrestore',
+            [Api\AccessoriesController::class, 'bulkRestore']
+        )->name('api.accessories.bulkrestore');
+
+    }); // end accessories group
+
+    Route::resource('accessories',
+        Api\AccessoriesController::class,
+        ['names' => [
+            'index' => 'api.accessories.index',
+            'show' => 'api.accessories.show',
+            'update' => 'api.accessories.update',
+            'store' => 'api.accessories.store',
+            'destroy' => 'api.accessories.destroy',
+        ],
+            'except' => ['create', 'edit'],
+            'parameters' => ['accessory' => 'accessory_id'],
+        ]
+    );
+
+    /**
+     * Categories API routes
+     */
     Route::group(['prefix' => 'categories'], function () {
 
         Route::get('{item_type}/selectlist',
             [
-                'as' => 'api.categories.selectlist',
-                'uses' => 'CategoriesController@selectlist'
+                Api\CategoriesController::class,
+                'selectlist',
             ]
-        );
+        )->name('api.categories.selectlist');
 
     });
 
-    // Categories group
-    Route::resource('categories', 'CategoriesController',
-        [
-            'names' =>
-                [
-                    'index' => 'api.categories.index',
-                    'show' => 'api.categories.show',
-                    'store' => 'api.categories.store',
-                    'update' => 'api.categories.update',
-                    'destroy' => 'api.categories.destroy'
-                ],
-            'except' => ['edit', 'create'],
-            'parameters' => ['category' => 'category_id']
-        ]
-    ); // Categories resource
-
-
-    /*--- Companies API ---*/
-
-    Route::get( 'companies/selectlist',  [
-        'as' => 'companies.selectlist',
-        'uses' => 'CompaniesController@selectlist'
-    ]);
-
-
-    // Companies resource
-    Route::resource('companies', 'CompaniesController',
-        [
-            'names' =>
-                [
-                    'index' => 'api.companies.index',
-                    'show' => 'api.companies.show',
-                    'store' => 'api.companies.store',
-                    'update' => 'api.companies.update',
-                    'destroy' => 'api.companies.destroy'
-                ],
+    Route::resource('categories',
+        Api\CategoriesController::class,
+        ['names' => [
+            'index' => 'api.categories.index',
+            'show' => 'api.categories.show',
+            'update' => 'api.categories.update',
+            'store' => 'api.categories.store',
+            'destroy' => 'api.categories.destroy',
+        ],
             'except' => ['create', 'edit'],
-            'parameters' => ['component' => 'component_id']
+            'parameters' => ['category' => 'category_id'],
         ]
-    ); // Companies resource
+    ); // end category API routes
 
-
-    /*--- Departments API ---*/
-
-    /*--- Suppliers API ---*/
-    Route::group(['prefix' => 'departments'], function () {
-
+    /**
+     * Companies API routes
+     */
+    Route::group(['prefix' => 'companies'], function () {
 
         Route::get('selectlist',
             [
-                'as' => 'api.departments.selectlist',
-                'uses' => 'DepartmentsController@selectlist'
+                Api\CompaniesController::class,
+                'selectlist',
             ]
-        );
-    }); // Departments group
+        )->name('api.companies.selectlist');
 
+    });
 
-
-    Route::resource('departments', 'DepartmentsController',
-        [
-            'names' =>
-                [
-                    'index' => 'api.departments.index',
-                    'show' => 'api.departments.show',
-                    'store' => 'api.departments.store',
-                    'update' => 'api.departments.update',
-                    'destroy' => 'api.departments.destroy'
-                ],
+    Route::resource('companies',
+        Api\CompaniesController::class,
+        ['names' => [
+            'index' => 'api.companies.index',
+            'show' => 'api.companies.show',
+            'update' => 'api.companies.update',
+            'store' => 'api.companies.store',
+            'destroy' => 'api.companies.destroy',
+        ],
             'except' => ['create', 'edit'],
-            'parameters' => ['department' => 'department_id']
+            'parameters' => ['company' => 'company_id'],
         ]
-    ); // Departments resource
+    ); // end companies API routes
 
+    /**
+     * Departments API routes
+     */
+    Route::group(['prefix' => 'departments'], function () {
 
-    /*--- Components API ---*/
+        Route::get('selectlist',
+            [
+                Api\DepartmentsController::class,
+                'selectlist',
+            ]
+        )->name('api.departments.selectlist');
 
-    Route::resource('components', 'ComponentsController',
-        [
-            'names' =>
-                [
-                    'index' => 'api.components.index',
-                    'show' => 'api.components.show',
-                    'store' => 'api.components.store',
-                    'update' => 'api.components.update',
-                    'destroy' => 'api.components.destroy'
-                ],
+    });
+
+    Route::resource('departments',
+        Api\DepartmentsController::class,
+        ['names' => [
+            'index' => 'api.departments.index',
+            'show' => 'api.departments.show',
+            'update' => 'api.departments.update',
+            'store' => 'api.departments.store',
+            'destroy' => 'api.departments.destroy',
+        ],
             'except' => ['create', 'edit'],
-            'parameters' => ['component' => 'component_id']
+            'parameters' => ['department' => 'department_id'],
         ]
-    ); // Components resource
+    ); // end departments API routes
 
+    /**
+     * Components API routes
+     */
     Route::group(['prefix' => 'components'], function () {
+
+        Route::get('{component}/history',
+            [
+                Api\ComponentsController::class,
+                'history',
+            ]
+        )->name('api.components.history')->withTrashed();
 
         Route::get('{component}/assets',
             [
-                'as' =>'api.components.assets',
-                'uses' => 'ComponentsController@getAssets',
+                Api\ComponentsController::class,
+                'getAssets',
             ]
-        );
-    }); // Components group
+        )->name('api.components.assets');
 
+        Route::post('{id}/restore',
+            [Api\ComponentsController::class, 'restore']
+        )->where('id', '[0-9]+')->name('api.components.restore');
 
-    /*--- Consumables API ---*/
-    Route::get('consumables/selectlist',
+        Route::post('{component}/unarchive',
+            [Api\ComponentsController::class, 'unarchive']
+        )->where('component', '[0-9]+')->name('api.components.unarchive');
+
+        Route::post('bulkedit',
+            [Api\ComponentsController::class, 'bulkEdit']
+        )->name('api.components.bulkedit');
+
+        Route::post('bulkdelete',
+            [Api\ComponentsController::class, 'bulkDestroy']
+        )->name('api.components.bulkdelete');
+
+        Route::post('bulkrestore',
+            [Api\ComponentsController::class, 'bulkRestore']
+        )->name('api.components.bulkrestore');
+
+    });
+    Route::post('components/{id}/checkin',
         [
-            'as' => 'api.consumables.selectlist',
-            'uses'=> 'ConsumablesController@selectlist'
+            Api\ComponentsController::class,
+            'checkin',
         ]
-    );
+    )->name('api.components.checkin');
 
-    Route::resource('consumables', 'ConsumablesController',
+    Route::post('components/{id}/checkout',
         [
-            'names' =>
-                [
-                    'index' => 'api.consumables.index',
-                    'show' => 'api.consumables.show',
-                    'store' => 'api.consumables.store',
-                    'update' => 'api.consumables.update',
-                    'destroy' => 'api.consumables.destroy'
-                ],
+            Api\ComponentsController::class,
+            'checkout',
+        ]
+    )->name('api.components.checkout');
+
+    Route::post('components/{component}/adjust-quantity',
+        [
+            Api\ComponentsController::class,
+            'adjustQuantity',
+        ]
+    )->name('api.components.adjust-quantity');
+
+    Route::resource('components',
+        Api\ComponentsController::class,
+        ['names' => [
+            'index' => 'api.components.index',
+            'show' => 'api.components.show',
+            'update' => 'api.components.update',
+            'store' => 'api.components.store',
+            'destroy' => 'api.components.destroy',
+        ],
             'except' => ['create', 'edit'],
-            'parameters' => ['consumable' => 'consumable_id']
+            'parameters' => ['component' => 'component_id'],
         ]
-    ); // Consumables resource
+    ); // end components API routes
 
+    /**
+     * Consumables API routes
+     */
     Route::group(['prefix' => 'consumables'], function () {
-        Route::get('view/{id}/users',
+
+        Route::get('{consumable}/history',
             [
-                'as' => 'api.consumables.showUsers',
-                'uses' => 'ConsumablesController@getDataView'
+                Api\ConsumablesController::class,
+                'history',
             ]
-        );
+        )->name('api.consumables.history')->withTrashed();
+
+        Route::get('selectlist',
+            [
+                Api\ConsumablesController::class,
+                'selectlist',
+            ]
+        )->name('api.consumables.selectlist');
+
+        Route::get('{id}/users',
+            [
+                Api\ConsumablesController::class,
+                'getDataView',
+            ]
+        )->name('api.consumables.show.users');
 
         Route::post('{consumable}/checkout',
             [
-                'as' => 'api.consumables.checkout',
-                'uses' => 'ConsumablesController@checkout'
+                Api\ConsumablesController::class,
+                'checkout',
             ]
-        );
+        )->name('api.consumables.checkout');
+
+        Route::post('{consumable}/adjust-quantity',
+            [
+                Api\ConsumablesController::class,
+                'adjustQuantity',
+            ]
+        )->name('api.consumables.adjust-quantity');
+
+        Route::post('{id}/restore',
+            [Api\ConsumablesController::class, 'restore']
+        )->where('id', '[0-9]+')->name('api.consumables.restore');
+
+        Route::post('{consumable}/unarchive',
+            [Api\ConsumablesController::class, 'unarchive']
+        )->where('consumable', '[0-9]+')->name('api.consumables.unarchive');
+
+        Route::post('{consumable}/consume/{assignment}',
+            [Api\ConsumablesController::class, 'consume']
+        )->where(['consumable' => '[0-9]+', 'assignment' => '[0-9]+'])
+            ->name('api.consumables.consume');
+
+        Route::post('bulkconsume',
+            [Api\ConsumablesController::class, 'bulkConsume']
+        )->name('api.consumables.bulkconsume');
+
+        Route::post('bulkedit',
+            [Api\ConsumablesController::class, 'bulkEdit']
+        )->name('api.consumables.bulkedit');
+
+        Route::post('bulkdelete',
+            [Api\ConsumablesController::class, 'bulkDestroy']
+        )->name('api.consumables.bulkdelete');
+
+        Route::post('bulkrestore',
+            [Api\ConsumablesController::class, 'bulkRestore']
+        )->name('api.consumables.bulkrestore');
+
     });
 
-    /*--- Depreciations API ---*/
-
-    Route::resource('depreciations', 'DepreciationsController',
-        [
-            'names' =>
-                [
-                    'index' => 'api.depreciations.index',
-                    'show' => 'api.depreciations.show',
-                    'store' => 'api.depreciations.store',
-                    'update' => 'api.depreciations.update',
-                    'destroy' => 'api.depreciations.destroy'
-                ],
-            'except' => ['create', 'edit'],
-            'parameters' => ['depreciation' => 'depreciation_id']
-        ]
-    ); // Depreciations resource
-
-
-    /*--- Fields API ---*/
-
-    Route::resource('fields', 'CustomFieldsController', [
-        'names' => [
-            'index' => 'api.customfields.index',
-            'show' => 'api.customfields.show',
-            'store' => 'api.customfields.store',
-            'update' => 'api.customfields.update',
-            'destroy' => 'api.customfields.destroy'
+    Route::resource('consumables',
+        Api\ConsumablesController::class,
+        ['names' => [
+            'index' => 'api.consumables.index',
+            'show' => 'api.consumables.show',
+            'update' => 'api.consumables.update',
+            'store' => 'api.consumables.store',
+            'destroy' => 'api.consumables.destroy',
         ],
-        'except' => [ 'create', 'edit' ],
-        'parameters' => [ 'field' => 'field_id' ]
-    ]);
+            'except' => ['create', 'edit'],
+            'parameters' => ['consumable' => 'consumable_id'],
+        ]
+    ); // end consumables API routes
 
+    /**
+     * Depreciations API routes
+     */
+    Route::resource('depreciations',
+        Api\DepreciationsController::class,
+        ['names' => [
+            'index' => 'api.depreciations.index',
+            'show' => 'api.depreciations.show',
+            'update' => 'api.depreciations.update',
+            'store' => 'api.depreciations.store',
+            'destroy' => 'api.depreciations.destroy',
+        ],
+            'except' => ['create', 'edit'],
+            'parameters' => ['depreciations' => 'depreciation_id'],
+        ]
+    ); // end depreciations API routes
+
+    Route::get('reports/depreciation',
+        [
+            Api\AssetsController::class,
+            'index',
+        ]
+    )->name('api.depreciation-report.index');
+
+    /**
+     * Fields API routes
+     */
     Route::group(['prefix' => 'fields'], function () {
+
         Route::post('fieldsets/{id}/order',
             [
-                'as' => 'api.customfields.order',
-                'uses' => 'CustomFieldsController@postReorder'
+                Api\CustomFieldsController::class,
+                'postReorder',
             ]
-        );
+        )->name('api.customfields.order');
+
         Route::post('{field}/associate',
             [
-                'as' => 'api.customfields.associate',
-                'uses' => 'CustomFieldsController@associate'
+                Api\CustomFieldsController::class,
+                'associate',
             ]
-        );
+        )->name('api.customfields.associate');
+
         Route::post('{field}/disassociate',
             [
-                'as' => 'api.customfields.disassociate',
-                'uses' => 'CustomFieldsController@disassociate'
+                Api\CustomFieldsController::class,
+                'disassociate',
             ]
-        );
-    }); // Fields group
-
-
-    /*--- Fieldsets API ---*/
-
-    Route::group(['prefix' => 'fieldsets'], function () {
-        Route::get('{fieldset}/fields',
-            [
-                'as' => 'api.fieldsets.fields',
-                'uses' => 'CustomFieldsetsController@fields'
-            ]
-        );
-        Route::get('/{fieldset}/fields/{model}',
-            [
-                'as' => 'api.fieldsets.fields-with-default-value',
-                'uses' => 'CustomFieldsetsController@fieldsWithDefaultValues'
-            ]
-        );
+        )->name('api.customfields.disassociate');
     });
 
-    Route::resource('fieldsets', 'CustomFieldsetsController',
-        [
-            'names' =>
-                [
-                    'index' => 'api.fieldsets.index',
-                    'show' => 'api.fieldsets.show',
-                    'store' => 'api.fieldsets.store',
-                    'update' => 'api.fieldsets.update',
-                    'destroy' => 'api.fieldsets.destroy'
-                ],
+    Route::resource('fields',
+        Api\CustomFieldsController::class,
+        ['names' => [
+            'index' => 'api.customfields.index',
+            'show' => 'api.customfields.show',
+            'update' => 'api.customfields.update',
+            'store' => 'api.customfields.store',
+            'destroy' => 'api.customfields.destroy',
+        ],
             'except' => ['create', 'edit'],
-            'parameters' => ['fieldset' => 'fieldset_id']
+            'parameters' => ['field' => 'field_id'],
         ]
-    ); // Custom fieldset resource
+    ); // end custom fields API routes
 
+    /**
+     * Fieldsets API routes
+     */
+    Route::group(['prefix' => 'fieldsets'], function () {
 
-    /*--- Groups API ---*/
+        Route::post('{fieldset}/fields',
+            [
+                Api\CustomFieldsetsController::class,
+                'fields',
+            ]
+        )->name('api.fieldsets.fields');
 
-    Route::resource('groups', 'GroupsController',
-        [
-            'names' =>
-                [
-                    'index' => 'api.groups.index',
-                    'show' => 'api.groups.show',
-                    'store' => 'api.groups.store',
-                    'update' => 'api.groups.update',
-                    'destroy' => 'api.groups.destroy'
-                ],
+        Route::post('{fieldset}/fields/{model}',
+            [
+                Api\CustomFieldsetsController::class,
+                'fieldsWithDefaultValues',
+            ]
+        )->name('api.fieldsets.fields-with-default-value');
+
+    });
+
+    Route::resource('fieldsets',
+        Api\CustomFieldsetsController::class,
+        ['names' => [
+            'index' => 'api.fieldsets.index',
+            'show' => 'api.fieldsets.show',
+            'update' => 'api.fieldsets.update',
+            'store' => 'api.fieldsets.store',
+            'destroy' => 'api.fieldsets.destroy',
+        ],
             'except' => ['create', 'edit'],
-            'parameters' => ['group' => 'group_id']
+            'parameters' => ['fieldset' => 'fieldset_id'],
         ]
-    ); // Groups resource
+    ); // end custom fieldsets API routes
 
+    /**
+     * Groups API routes
+     */
+    Route::group(['prefix' => 'groups'], function () {
 
-    /*--- Hardware API ---*/
+        Route::get('selectlist',
+            [
+                Api\GroupsController::class,
+                'selectlist',
+            ]
+        )->name('api.groups.selectlist');
 
+    });
+
+    Route::resource('groups',
+        Api\GroupsController::class,
+        ['names' => [
+            'index' => 'api.groups.index',
+            'show' => 'api.groups.show',
+            'update' => 'api.groups.update',
+            'store' => 'api.groups.store',
+            'destroy' => 'api.groups.destroy',
+        ],
+            'except' => ['create', 'edit'],
+            'parameters' => ['group' => 'group_id'],
+        ]
+    ); // end groups API routes
+
+    /**
+     * Assets API routes
+     */
     Route::group(['prefix' => 'hardware'], function () {
-    
-        Route::get('{asset_id}/licenses',  [
-            'as' => 'api.assets.licenselist',
-            'uses' => 'AssetsController@licenses'
-        ]);
-        
-        Route::get( 'bytag/{tag}',  [
-            'as' => 'assets.show.bytag',
-            'uses' => 'AssetsController@showByTag'
-        ]);
+
+        Route::get('selectlist',
+            [
+                Api\AssetsController::class,
+                'selectlist',
+            ]
+        )->name('assets.selectlist');
+
+        Route::get('{asset}/licenses',
+            [
+                Api\AssetsController::class,
+                'licenses',
+            ]
+        )->name('api.assets.licenselist');
+
+        Route::get('{asset}/history',
+            [
+                Api\AssetsController::class,
+                'history',
+            ]
+        )->name('api.assets.history')->withTrashed();
+
+        Route::get('bytag/{tag}',
+            [
+                Api\AssetsController::class,
+                'showByTag',
+            ]
+        )->name('assets.show.bytag');
 
         Route::get('bytag/{any}',
             [
-                'as' => 'api.assets.show.bytag',
-                'uses' => 'AssetsController@showByTag'
+                Api\AssetsController::class,
+                'showByTag',
             ]
-        )->where('any', '.*');
+        )->name('api.assets.show.bytag')
+            ->where('any', '.*');
 
+        Route::post('bytag/{any}/checkout',
+            [
+                Api\AssetsController::class,
+                'checkoutByTag',
+            ]
+        )->name('api.assets.checkout.bytag');
+
+        Route::post('bytag/{any}/checkin',
+            [
+                Api\AssetsController::class,
+                'checkinbytag',
+            ]
+        )->name('api.asset.checkinbytagPath');
+
+        Route::post('checkinbytag',
+            [
+                Api\AssetsController::class,
+                'checkinbytag',
+            ]
+        )->name('api.asset.checkinbytag');
 
         Route::get('byserial/{any}',
             [
-                'as' => 'api.assets.show.byserial',
-                'uses' => 'AssetsController@showBySerial'
+                Api\AssetsController::class,
+                'showBySerial',
             ]
-         )->where('any', '.*');
-        
+        )->name('api.assets.show.byserial')
+            ->where('any', '.*');
 
-        Route::get( 'selectlist',  [
-            'as' => 'assets.selectlist',
-            'uses' => 'AssetsController@selectlist'
-        ]);
-
-        Route::get('audit/{audit}', [
-            'as' => 'api.asset.to-audit',
-            'uses' => 'AssetsController@index'
-        ]);
-
-
-        Route::post('audit', [
-            'as' => 'api.asset.audit',
-            'uses' => 'AssetsController@audit'
-        ]);
-
-        Route::post('{asset_id}/checkout',
+        // This gets the "due or overdue" API endpoints for audit/audits and checkins
+        Route::get('{action}/{upcoming_status}',
             [
-                'as' => 'api.assets.checkout',
-                'uses' => 'AssetsController@checkout'
+                Api\AssetsController::class,
+                'index',
             ]
-        );
+        )->name('api.assets.list-upcoming')
+            ->where(['action' => 'audit|audits|checkins', 'upcoming_status' => 'due|overdue|due-or-overdue']);
 
-        Route::post('{asset_id}/checkin',
+        // Legacy URL for audit (body-based lookup via audit_key/asset_tag).
+        Route::post('audit',
             [
-                'as' => 'api.assets.checkin',
-                'uses' => 'AssetsController@checkin'
+                Api\AssetsController::class,
+                'audit',
             ]
-        );
+        )->name('api.asset.audit.legacy');
 
+        // Bulk audit: `ids` array in the request body, per-row envelope response.
+        // Declared BEFORE `{asset}/audit` so /hardware/audit/bulk matches this
+        // route instead of being interpreted as {asset}=audit.
+        Route::post('audit/bulk',
+            [
+                Api\AssetsController::class,
+                'bulkAudit',
+            ]
+        )->name('api.asset.bulk-audit');
+
+        // Single-asset audit. Route-model-binding on {asset}; legacy response shape.
+        Route::post('{asset}/audit',
+            [
+                Api\AssetsController::class,
+                'audit',
+            ]
+        )->name('api.asset.audit');
+
+        Route::post('{id}/checkin',
+            [
+                Api\AssetsController::class,
+                'checkin',
+            ]
+        )->name('api.asset.checkin');
+
+        Route::post('{id}/checkout',
+            [
+                Api\AssetsController::class,
+                'checkout',
+            ]
+        )->name('api.asset.checkout');
+
+        Route::post('{asset_id}/restore',
+            [
+                Api\AssetsController::class,
+                'restore',
+            ]
+        )->name('api.assets.restore');
+
+        /** Begin assigned routes */
+        Route::get('{asset}/assigned/assets',
+            [
+                Api\AssetsController::class,
+                'assignedAssets',
+            ]
+        )->name('api.assets.assigned_assets');
+
+        Route::get('{asset}/assigned/accessories',
+            [
+                Api\AssetsController::class,
+                'assignedAccessories',
+            ]
+        )->name('api.assets.assigned_accessories');
+
+        Route::get('{asset}/assigned/components',
+            [
+                Api\AssetsController::class,
+                'assignedComponents',
+            ]
+        )->name('api.assets.assigned_components');
+        /** End assigned routes */
     });
 
-    /*--- Asset Maintenances API ---*/
-    Route::resource('maintenances', 'AssetMaintenancesController',
-        [
-            'names' =>
-                [
-                    'index' => 'api.maintenances.index',
-                    'show' => 'api.maintenances.show',
-                    'store' => 'api.maintenances.store',
-                    'update' => 'api.maintenances.update',
-                    'destroy' => 'api.maintenances.destroy'
-                ],
-            'except' => ['create', 'edit'],
-            'parameters' => ['maintenance' => 'maintenance_id']
+    // Bulk update: `ids` array in the request body, per-row envelope response.
+    // Declared BEFORE the singular {asset} routes so PATCH /hardware/bulk hits
+    // this handler instead of trying to bind "bulk" as an Asset.
+    Route::patch('/hardware/bulk', [Api\AssetsController::class, 'bulkUpdate'])
+        ->name('api.assets.bulk-update');
+
+    // Single-asset update. Route-model-binding on {asset}, legacy response shape.
+    Route::patch('/hardware/{asset}', [Api\AssetsController::class, 'update'])
+        ->name('api.assets.update');
+    Route::put('/hardware/{asset}', [Api\AssetsController::class, 'update'])
+        ->name('api.assets.put-update');
+
+    Route::resource('hardware',
+        Api\AssetsController::class,
+        ['names' => [
+            'index' => 'api.assets.index',
+            'show' => 'api.assets.show',
+            'store' => 'api.assets.store',
+            'destroy' => 'api.assets.destroy',
+        ],
+            'except' => ['create', 'edit', 'update'],
+            'parameters' => ['asset' => 'asset_id'],
         ]
-    ); // Consumables resource
+    ); // end assets API routes
 
+    /**
+     * Unified calendar events API. Reads from the calendar_events
+     * index (populated by every HasCalendarEvents source model)
+     * and hydrates titles / urls / colors live from the source.
+     */
+    Route::get('/calendar/events',
+        [Api\CalendarEventsController::class, 'index']
+    )->name('api.calendar.events');
 
-    Route::resource('hardware', 'AssetsController',
+    /**
+     * Low-stock unified endpoint for the dashboard widget. Delegates to
+     * Helper::checkLowInventory so this and the top-nav alert bell
+     * share a single source of truth.
+     */
+    Route::get('/low-stock',
+        [Api\LowStockController::class, 'index']
+    )->name('api.low-stock.index');
+
+    /**
+     * Asset maintenances API routes
+     */
+    Route::get('/maintenances/{maintenance}/history',
         [
-            'names' =>
-                [
-                    'index' => 'api.assets.index',
-                    'show' => 'api.assets.show',
-                    'store' => 'api.assets.store',
-                    'update' => 'api.assets.update',
-                    'destroy' => 'api.assets.destroy'
-                ],
-            'except' => ['create', 'edit'],
-            'parameters' => ['asset' => 'asset_id']
+            Api\MaintenancesController::class,
+            'history',
         ]
-    ); // Hardware resource
+    )->name('api.maintenances.history')->withTrashed();
 
+    Route::get('/maintenances/{maintenance}/notes',
+        [Api\MaintenancesController::class, 'notesIndex']
+    )->name('api.maintenances.notes.index');
 
-    /*--- Imports API ---*/
+    Route::post('/maintenances/{maintenance}/notes',
+        [Api\MaintenancesController::class, 'notesStore']
+    )->name('api.maintenances.notes.store');
 
-    Route::resource('imports', 'ImportController',
+    Route::post('/maintenances/{maintenance}/complete',
+        [Api\MaintenancesController::class, 'complete']
+    )->name('api.maintenances.complete');
+
+    Route::resource('maintenances',
+        Api\MaintenancesController::class,
+        ['names' => [
+            'index' => 'api.maintenances.index',
+            'show' => 'api.maintenances.show',
+            'update' => 'api.maintenances.update',
+            'store' => 'api.maintenances.store',
+            'destroy' => 'api.maintenances.destroy',
+        ],
+            'except' => ['create', 'edit'],
+            'parameters' => ['maintenance' => 'maintenance_id'],
+        ]
+    ); // end assets API routes
+
+    /**
+     * Maintenance types API routes
+     */
+    Route::get('maintenance-types/selectlist',
         [
-            'names' =>
-                [
-                    'index' => 'api.imports.index',
-                    'show' => 'api.imports.show',
-                    'store' => 'api.imports.store',
-                    'update' => 'api.imports.update',
-                    'destroy' => 'api.imports.destroy'
-                ],
-            'except' => ['create', 'edit'],
-            'parameters' => ['import' => 'import_id']
+            Api\MaintenanceTypesController::class,
+            'selectlist',
         ]
-    ); // Imports resource
+    )->name('api.maintenance-types.selectlist');
 
+    Route::resource('maintenance-types',
+        Api\MaintenanceTypesController::class,
+        ['names' => [
+            'index' => 'api.maintenance-types.index',
+            'show' => 'api.maintenance-types.show',
+            'store' => 'api.maintenance-types.store',
+            'update' => 'api.maintenance-types.update',
+            'destroy' => 'api.maintenance-types.destroy',
+        ],
+            'except' => ['create', 'edit'],
+            'parameters' => ['maintenance-type' => 'maintenanceType'],
+        ]
+    );
+
+    /**
+     * Imports API routes
+     */
     Route::group(['prefix' => 'imports'], function () {
 
         Route::post('process/{import}',
             [
-                'as' => 'api.imports.importFile',
-                'uses'=> 'ImportController@process'
+                Api\ImportController::class,
+                'process',
             ]
-        );
-    }); // Imports group
-
-
-
-
-    /*--- Licenses API ---*/
-
-    Route::group(['prefix' => 'licenses'], function () {
-        Route::get('{licenseId}/seats', [
-            'as' => 'api.license.seats',
-            'uses' => 'LicensesController@seats'
-        ]);
-        
-        Route::get('selectlist',
-            [
-                'as' => 'api.licenses.selectlist',
-                'uses'=> 'LicensesController@selectlist'
-            ]
-        );
-
-    }); // Licenses group
-
-    Route::resource('licenses', 'LicensesController',
-        [
-            'names' =>
-                [
-                    'index' => 'api.licenses.index',
-                    'show' => 'api.licenses.show',
-                    'store' => 'api.licenses.store',
-                    'update' => 'api.licenses.update',
-                    'destroy' => 'api.licenses.destroy'
-                ],
-            'except' => ['create', 'edit'],
-            'parameters' => ['license' => 'license_id']
-        ]
-    ); // Licenses resource
-
-
-
-    /*--- Locations API ---*/
-
-    Route::group(['prefix' => 'locations'], function () {
-
-        Route::get('{location}/users',
-            [
-                'as'=>'api.locations.viewusers',
-                'uses'=>'LocationsController@getDataViewUsers'
-            ]
-        );
-
-        Route::get('{location}/assets',
-            [
-                'as'=>'api.locations.viewassets',
-                'uses'=>'LocationsController@getDataViewAssets'
-            ]
-        );
-
-        // Do we actually still need this, now that we have an API?
-        Route::get('{location}/check',
-            [
-                'as' => 'api.locations.check',
-                'uses' => 'LocationsController@show'
-            ]
-        );
-
-        Route::get( 'selectlist',  [
-            'as' => 'locations.selectlist',
-            'uses' => 'LocationsController@selectlist'
-        ]);
-    }); // Locations group
-
-
-
-    Route::resource('locations', 'LocationsController',
-        [
-            'names' =>
-                [
-                    'index' => 'api.locations.index',
-                    'show' => 'api.locations.show',
-                    'store' => 'api.locations.store',
-                    'update' => 'api.locations.update',
-                    'destroy' => 'api.locations.destroy'
-                ],
-            'except' => ['create', 'edit'],
-            'parameters' => ['location' => 'location_id']
-        ]
-    ); // Locations resource
-
-
-
-
-    /*--- Manufacturers API ---*/
-
-    Route::group(['prefix' => 'manufacturers'], function () {
-
-        Route::get( 'selectlist',  [
-            'as' => 'manufacturers.selectlist',
-            'uses' => 'ManufacturersController@selectlist'
-        ]);
-    }); // Locations group
-
-
-    Route::resource('manufacturers', 'ManufacturersController',
-        [
-            'names' =>
-                [
-                    'index' => 'api.manufacturers.index',
-                    'show' => 'api.manufacturers.show',
-                    'store' => 'api.manufacturers.store',
-                    'update' => 'api.manufacturers.update',
-                    'destroy' => 'api.manufacturers.destroy'
-                ],
-            'except' => ['create', 'edit'],
-            'parameters' => ['manufacturer' => 'manufacturer_id']
-        ]
-    ); // Manufacturers resource
-
-
-    /*--- Models API ---*/
-
-    Route::group(['prefix' => 'models'], function () {
-
-        Route::get('assets',
-            [
-                'as' => 'api.models.assets',
-                'uses'=> 'AssetModelsController@assets'
-            ]
-        );
-        Route::get('selectlist',
-            [
-                'as' => 'api.models.selectlist',
-                'uses'=> 'AssetModelsController@selectlist'
-            ]
-        );
-    }); // Models group
-
-
-    Route::resource('models', 'AssetModelsController',
-        [
-            'names' =>
-                [
-                    'index' => 'api.models.index',
-                    'show' => 'api.models.show',
-                    'store' => 'api.models.store',
-                    'update' => 'api.models.update',
-                    'destroy' => 'api.models.destroy'
-                ],
-            'except' => ['create', 'edit'],
-            'parameters' => ['model' => 'model_id']
-        ]
-    ); // Models resource
-
-
-
-
-    /*--- Settings API ---*/
-    Route::get('settings/ldaptest', [
-        'as' => 'api.settings.ldaptest',
-        'uses' => 'SettingsController@ldapAdSettingsTest'
-    ]);
-
-    Route::post('settings/purge_barcodes', [
-        'as' => 'api.settings.purgebarcodes',
-        'uses' => 'SettingsController@purgeBarcodes'
-    ]);
-
-    Route::get('settings/login-attempts', [
-        'middleware' => ['auth', 'authorize:superuser'],
-        'as' => 'api.settings.login_attempts',
-        'uses' => 'SettingsController@showLoginAttempts'
-    ]);
-
-
-    Route::post('settings/ldaptestlogin', [
-        'as' => 'api.settings.ldaptestlogin',
-        'uses' => 'SettingsController@ldaptestlogin'
-    ]);
-
-    Route::post('settings/slacktest', [
-        'as' => 'api.settings.slacktest',
-        'uses' => 'SettingsController@slacktest'
-    ]);
-
-    Route::post(
-        'settings/mailtest',
-        [
-            'as'  => 'api.settings.mailtest',
-            'uses' => 'SettingsController@ajaxTestEmail'
-    ]);
-
-
-    Route::resource('settings', 'SettingsController',
-        [
-            'names' =>
-                [
-                    'index' => 'api.settings.index',
-                    'store' => 'api.settings.store',
-                    'show' => 'api.settings.show',
-                    'update' => 'api.settings.update'
-                ],
-            'except' => ['create', 'edit', 'destroy'],
-            'parameters' => ['setting' => 'setting_id']
-        ]
-    ); // Settings resource
-
-
-
-
-    /*--- Status Labels API ---*/
-
-
-    Route::group(['prefix' => 'statuslabels'], function () {
-
-        // Pie chart for dashboard
-        Route::get('assets',
-            [
-                'as' => 'api.statuslabels.assets.bytype',
-                'uses' => 'StatuslabelsController@getAssetCountByStatuslabel'
-            ]
-        );
-
-        Route::get('{statuslabel}/assetlist',
-            [
-                'as' => 'api.statuslabels.assets',
-                'uses' => 'StatuslabelsController@assets'
-            ]
-        );
-
-        Route::get('{statuslabel}/deployable',
-            [
-                'as' => 'api.statuslabels.deployable',
-                'uses' => 'StatuslabelsController@checkIfDeployable'
-            ]
-        );
-
+        )->name('api.imports.importFile');
 
     });
 
-    Route::resource('statuslabels', 'StatuslabelsController',
-        [
-            'names' =>
-                [
-                    'index' => 'api.statuslabels.index',
-                    'store' => 'api.statuslabels.store',
-                    'show' => 'api.statuslabels.show',
-                    'update' => 'api.statuslabels.update',
-                    'destroy' => 'api.statuslabels.destroy'
-                ],
+    Route::resource('imports',
+        Api\ImportController::class,
+        ['names' => [
+            'index' => 'api.imports.index',
+            'show' => 'api.imports.show',
+            'update' => 'api.imports.update',
+            'store' => 'api.imports.store',
+            'destroy' => 'api.imports.destroy',
+        ],
             'except' => ['create', 'edit'],
-            'parameters' => ['statuslabel' => 'statuslabel_id']
+            'parameters' => ['import' => 'import_id'],
         ]
-    );
+    ); // end imports API routes
 
-    // Status labels group
+    /**
+     * Labels API routes
+     */
+    Route::group(['prefix' => 'labels'], function () {
+        Route::get('{name}', [Api\LabelsController::class, 'show'])
+            ->where('name', '.*')
+            ->name('api.labels.show');
+        Route::get('', [Api\LabelsController::class, 'index'])
+            ->name('api.labels.index');
+    });
 
-
-    /*--- Suppliers API ---*/
-    Route::group(['prefix' => 'suppliers'], function () {
-
-        Route::get('list',
-            [
-                'as'=>'api.suppliers.list',
-                'uses'=>'SuppliersController@getDatatable'
-            ]
-        );
+    /**
+     * Licenses API routes
+     */
+    Route::group(['prefix' => 'licenses'], function () {
 
         Route::get('selectlist',
             [
-                'as' => 'api.suppliers.selectlist',
-                'uses' => 'SuppliersController@selectlist'
+                Api\LicensesController::class,
+                'selectlist',
             ]
-        );
-    }); // Suppliers group
+        )->name('api.licenses.selectlist');
 
-
-    Route::resource('suppliers', 'SuppliersController',
-        [
-            'names' =>
-                [
-                    'index' => 'api.suppliers.index',
-                    'show' => 'api.suppliers.show',
-                    'store' => 'api.suppliers.store',
-                    'update' => 'api.suppliers.update',
-                    'destroy' => 'api.suppliers.destroy'
-                ],
-            'except' => ['create', 'edit'],
-            'parameters' => ['supplier' => 'supplier_id']
-        ]
-    ); // Suppliers resource
-
-
-
-
-    /*--- Users API ---*/
-
-
-    Route::group([ 'prefix' => 'users' ], function () {
-
-        Route::post('two_factor_reset',
+        Route::get('{license}/history',
             [
-                'as' => 'api.users.two_factor_reset',
-                'uses' => 'UsersController@postTwoFactorReset'
+                Api\LicensesController::class,
+                'history',
             ]
-        );
+        )->name('api.licenses.history')->withTrashed();
+
+        Route::post('{license_id}/checkout',
+            [
+                Api\LicensesController::class,
+                'checkout',
+            ]
+        )->name('api.licenses.checkout');
+
+        Route::post('{license_id}/checkin',
+            [
+                Api\LicensesController::class,
+                'checkin',
+            ]
+        )->name('api.licenses.checkin');
+
+    });
+
+    Route::resource('licenses',
+        Api\LicensesController::class,
+        ['names' => [
+            'index' => 'api.licenses.index',
+            'show' => 'api.licenses.show',
+            'update' => 'api.licenses.update',
+            'store' => 'api.licenses.store',
+            'destroy' => 'api.licenses.destroy',
+        ],
+            'except' => ['create', 'edit'],
+            'parameters' => ['licenses' => 'license_id'],
+        ]
+    );
+
+    Route::resource('licenses.seats',
+        Api\LicenseSeatsController::class,
+        ['names' => [
+            'index' => 'api.licenses.seats.index',
+            'show' => 'api.licenses.seats.show',
+            'update' => 'api.licenses.seats.update',
+        ],
+            'except' => ['create', 'edit', 'destroy', 'store'],
+            'parameters' => ['licenseseat' => 'licenseseat_id'],
+        ]
+    ); // end license API routes
+
+    /**
+     * Locations API routes
+     */
+    Route::group(['prefix' => 'locations'], function () {
+
+        Route::get('selectlist',
+            [
+                Api\LocationsController::class,
+                'selectlist',
+            ]
+        )->name('api.locations.selectlist');
+
+        // Get list of assets with a default location
+        Route::get('{location}/assets',
+            [
+                Api\LocationsController::class,
+                'assets',
+            ]
+        )->name('api.locations.viewassets');
+
+        // Add a comment here, you moron
+        /** Begin assigned routes */
+        Route::get('{location}/assigned/assets',
+            [
+                Api\LocationsController::class,
+                'assignedAssets',
+            ]
+        )->name('api.locations.assigned_assets');
+
+        Route::get('{location}/assigned/accessories',
+            [
+                Api\LocationsController::class,
+                'assignedAccessories',
+            ]
+        )->name('api.locations.assigned_accessories');
+
+        Route::get('{location}/history',
+            [
+                Api\LocationsController::class,
+                'history',
+            ]
+        )->name('api.locations.history')->withTrashed();
+
+        /** End assigned routes */
+    });
+
+    Route::resource('locations',
+        Api\LocationsController::class,
+        ['names' => [
+            'index' => 'api.locations.index',
+            'show' => 'api.locations.show',
+            'update' => 'api.locations.update',
+            'store' => 'api.locations.store',
+            'destroy' => 'api.locations.destroy',
+        ],
+            'except' => ['create', 'edit'],
+            'parameters' => ['location' => 'location_id'],
+        ]
+    ); // end locations API routes
+
+    /**
+     * Manufacturers API routes
+     */
+    Route::group(['prefix' => 'manufacturers'], function () {
+
+        Route::get('selectlist',
+            [
+                Api\ManufacturersController::class,
+                'selectlist',
+            ]
+        )->name('api.manufacturers.selectlist');
+
+        Route::post('{id}/restore',
+            [
+                Api\ManufacturersController::class,
+                'restore',
+            ]
+        )->name('api.manufacturers.restore');
+
+    });
+
+    Route::resource('manufacturers',
+        Api\ManufacturersController::class,
+        ['names' => [
+            'index' => 'api.manufacturers.index',
+            'show' => 'api.manufacturers.show',
+            'update' => 'api.manufacturers.update',
+            'store' => 'api.manufacturers.store',
+            'destroy' => 'api.manufacturers.destroy',
+        ],
+            'except' => ['create', 'edit'],
+            'parameters' => ['manufacturer' => 'manufacturer_id'],
+        ]
+    ); // end  manufacturers API routes
+
+    /**
+     * Asset models API routes
+     */
+    Route::group(['prefix' => 'models'], function () {
+
+        Route::get('{model}/history',
+            [
+                Api\AssetModelsController::class,
+                'history',
+            ]
+        )->name('api.models.history')->withTrashed();
+
+        Route::get('selectlist',
+            [
+                Api\AssetModelsController::class,
+                'selectlist',
+            ]
+        )->name('api.models.selectlist');
+
+        Route::get('{id}/assets',
+            [
+                Api\AssetModelsController::class,
+                'assets',
+            ]
+        )->name('api.models.assets');
+
+        Route::post('{id}/restore',
+            [
+                Api\AssetModelsController::class,
+                'restore',
+            ]
+        )->name('api.models.restore');
+    });
+
+    Route::resource('models',
+        Api\AssetModelsController::class,
+        ['names' => [
+            'index' => 'api.models.index',
+            'show' => 'api.models.show',
+            'update' => 'api.models.update',
+            'store' => 'api.models.store',
+            'destroy' => 'api.models.destroy',
+        ],
+            'except' => ['create', 'edit'],
+            'parameters' => ['model' => 'model_id'],
+        ]
+    ); // end asset models API routes
+
+    /**
+     * Asset notes API routes
+     */
+    Route::group(['prefix' => 'notes'], function () {
+
+        Route::post(
+            '{asset}/store',
+            [
+                Api\NotesController::class,
+                'store',
+            ]
+        )->name('api.notes.store');
+
+        Route::get(
+            '{asset}/index',
+            [
+                Api\NotesController::class,
+                'index',
+            ]
+        )->name('api.notes.index');
+    }
+    ); // end asset notes API routes
+
+    /**
+     * Settings API routes
+     */
+    Route::group(['middleware' => ['auth', 'authorize:superuser'], 'prefix' => 'settings'], function () {
+
+        Route::get('ldaptest',
+            [
+                Api\SettingsController::class,
+                'ldaptest',
+            ]
+        )->middleware('throttle:5,1')->name('api.settings.ldaptest');
+
+        Route::post('purge_barcodes',
+            [
+                Api\SettingsController::class,
+                'purgeBarcodes',
+            ]
+        )->name('api.settings.purgebarcodes');
+
+        Route::get('login-attempts',
+            [
+                Api\SettingsController::class,
+                'showLoginAttempts',
+            ]
+        )->name('api.settings.login_attempts');
+
+        Route::post('ldaptestlogin',
+            [
+                Api\SettingsController::class,
+                'ldaptestlogin',
+            ]
+        )->middleware('throttle:5,1')->name('api.settings.ldaptestlogin');
+
+        Route::post('mailtest',
+            [
+                Api\SettingsController::class,
+                'ajaxTestEmail',
+            ]
+        )->name('api.settings.mailtest');
+
+        Route::get('backups',
+            [
+                Api\SettingsController::class,
+                'listBackups',
+            ]
+        )->name('api.settings.backups.index');
+
+        Route::get('backups/download/latest',
+            [
+                Api\SettingsController::class,
+                'downloadLatestBackup',
+            ]
+        )->name('api.settings.backups.latest');
+
+        Route::get('backups/download/{file}',
+            [
+                Api\SettingsController::class,
+                'downloadBackup',
+            ]
+        )->name('api.settings.backups.download');
+
+    });
+
+    Route::resource('settings',
+        Api\SettingsController::class,
+        ['names' => [
+            'update' => 'api.settings.update',
+            'store' => 'api.settings.store',
+        ],
+            'except' => ['create', 'edit', 'index', 'destroy', 'show'],
+            'parameters' => ['setting' => 'setting_id'],
+        ]
+    ); // end settings API
+
+    /**
+     * Saved searches API routes. Private-only CRUD for v1. Each
+     * authenticated user manages their own named filter-presets per
+     * listing table.
+     */
+    Route::get('saved-searches',
+        [Api\SavedSearchesController::class, 'index']
+    )->name('api.saved-searches.index');
+
+    Route::post('saved-searches',
+        [Api\SavedSearchesController::class, 'store']
+    )->name('api.saved-searches.store');
+
+    Route::put('saved-searches/{savedSearch}',
+        [Api\SavedSearchesController::class, 'update']
+    )->name('api.saved-searches.update');
+
+    Route::delete('saved-searches/{savedSearch}',
+        [Api\SavedSearchesController::class, 'destroy']
+    )->name('api.saved-searches.destroy');
+
+    /**
+     * Status labels API routes
+     */
+    Route::group(['prefix' => 'statuslabels'], function () {
+
+        Route::get('selectlist',
+            [
+                Api\StatuslabelsController::class,
+                'selectlist',
+            ]
+        )->name('api.statuslabels.selectlist');
+
+        Route::get('assets/name',
+            [
+                Api\StatuslabelsController::class,
+                'getAssetCountByStatuslabel',
+            ]
+        )->name('api.statuslabels.assets.byname');
+
+        Route::get('assets/type',
+            [
+                Api\StatuslabelsController::class,
+                'getAssetCountByMetaStatus',
+            ]
+        )->name('api.statuslabels.assets.bytype');
+
+        Route::get('{id}/assetlist',
+            [
+                Api\StatuslabelsController::class,
+                'assets',
+            ]
+        )->name('api.statuslabels.assets');
+
+        Route::get('{statuslabel}/deployable',
+            [
+                Api\StatuslabelsController::class,
+                'checkIfDeployable',
+            ]
+        )->name('api.statuslabels.deployable');
+
+        Route::get('selectlist',
+            [
+                Api\StatuslabelsController::class,
+                'selectlist',
+            ]
+        )->name('api.statuslabels.selectlist');
+
+    });
+
+    Route::resource('statuslabels',
+        Api\StatuslabelsController::class,
+        ['names' => [
+            'index' => 'api.statuslabels.index',
+            'show' => 'api.statuslabels.show',
+            'update' => 'api.statuslabels.update',
+            'store' => 'api.statuslabels.store',
+            'destroy' => 'api.statuslabels.destroy',
+        ],
+            'except' => ['create', 'edit'],
+            'parameters' => ['statuslabel' => 'statuslabel_id'],
+        ]
+    ); // end status labels API routes
+
+    /**
+     * Suppliers API routes
+     */
+    Route::group(['prefix' => 'suppliers'], function () {
+
+        Route::get('selectlist',
+            [
+                Api\SuppliersController::class,
+                'selectlist',
+            ]
+        )->name('api.suppliers.selectlist');
+
+    });
+
+    Route::resource('suppliers',
+        Api\SuppliersController::class,
+        ['names' => [
+            'index' => 'api.suppliers.index',
+            'show' => 'api.suppliers.show',
+            'update' => 'api.suppliers.update',
+            'store' => 'api.suppliers.store',
+            'destroy' => 'api.suppliers.destroy',
+        ],
+            'except' => ['create', 'edit'],
+            'parameters' => ['supplier' => 'supplier_id'],
+        ]
+    ); // end suppliers API routes
+
+    /**
+     * Users API routes
+     */
+    Route::group(['prefix' => 'users'], function () {
+
+        Route::get('{user}/history',
+            [
+                Api\UsersController::class,
+                'history',
+            ]
+        )->name('api.users.history')->withTrashed();
+
+        Route::get('selectlist',
+            [
+                Api\UsersController::class,
+                'selectlist',
+            ]
+        )->name('api.users.selectlist');
+
+        Route::post('ldapsync',
+            [
+                Api\UsersController::class,
+                'syncLdapUsers',
+            ]
+        )->name('api.users.ldapsync');
 
         Route::get('me',
             [
-                'as' => 'api.users.me',
-                'uses' => 'UsersController@getCurrentUserInfo'
+                Api\UsersController::class,
+                'getCurrentUserInfo',
             ]
-        );
+        )->name('api.users.me');
 
-        Route::get('list/{status?}',
+        Route::get('{user}/eulas',
             [
-                'as' => 'api.users.list',
-                'uses' => 'UsersController@getDatatable'
+                Api\UsersController::class,
+                'eulas',
             ]
-        );
-
-        Route::get('selectlist',
-            [
-                'as' => 'api.users.selectlist',
-                'uses' => 'UsersController@selectList'
-            ]
-        );
+        )->name('api.user.eulas');
 
         Route::get('{user}/assets',
             [
-                'as' => 'api.users.assetlist',
-                'uses' => 'UsersController@assets'
+                Api\UsersController::class,
+                'assets',
             ]
-        );
+        )->name('api.users.assetlist');
 
+        Route::post('{user}/email',
+            [
+                Api\UsersController::class,
+                'emailAssetList',
+            ]
+        )->name('api.users.email_assets');
 
         Route::get('{user}/accessories',
             [
-                'as' => 'api.users.accessorieslist',
-                'uses' => 'UsersController@accessories'
+                Api\UsersController::class,
+                'accessories',
             ]
-        );
+        )->name('api.users.accessorieslist');
 
+        Route::get('{user}/consumables',
+            [
+                Api\UsersController::class,
+                'consumables',
+            ]
+        )->name('api.users.consumableslist');
 
         Route::get('{user}/licenses',
             [
-                'as' => 'api.users.licenselist',
-                'uses' => 'UsersController@licenses'
+                Api\UsersController::class,
+                'licenses',
             ]
-        );
+        )->name('api.users.licenselist');
 
-        Route::post('{user}/upload',
+        Route::post('{user}/restore',
             [
-                'as' => 'api.users.uploads',
-                'uses' => 'UsersController@postUpload'
+                Api\UsersController::class,
+                'restore',
             ]
-        );
-    }); // Users group
+        )->name('api.users.restore');
 
-    Route::resource('users', 'UsersController',
-        [
-            'names' =>
-                [
-                    'index' => 'api.users.index',
-                    'show' => 'api.users.show',
-                    'store' => 'api.users.store',
-                    'update' => 'api.users.update',
-                    'destroy' => 'api.users.destroy'
-                ],
+    });
+
+    Route::resource('users',
+        Api\UsersController::class,
+        ['names' => [
+            'index' => 'api.users.index',
+            'show' => 'api.users.show',
+            'store' => 'api.users.store',
+            'update' => 'api.users.update',
+            'destroy' => 'api.users.destroy',
+        ],
             'except' => ['create', 'edit'],
-            'parameters' => ['user' => 'user_id']
+            'parameters' => ['user' => 'user_id'],
         ]
-    ); // Users resource
+    ); // end users API routes
 
-
-    Route::get(
-        'reports/activity',
-        [ 'as' => 'api.activity.index', 'uses' => 'ReportsController@index' ]
-    );
-
-    /*--- Kits API ---*/
-
-    Route::resource('kits', 'PredefinedKitsController',
-        [
-            'names' =>
-                [
-                    'index' => 'api.kits.index',
-                    'show' => 'api.kits.show',
-                    'store' => 'api.kits.store',
-                    'update' => 'api.kits.update',
-                    'destroy' => 'api.kits.destroy',
-                ],
+    /**
+     * Kits API routes
+     */
+    Route::resource('kits',
+        Api\PredefinedKitsController::class,
+        ['names' => [
+            'index' => 'api.kits.index',
+            'show' => 'api.kits.show',
+            'update' => 'api.kits.update',
+            'store' => 'api.kits.store',
+            'destroy' => 'api.kits.destroy',
+        ],
             'except' => ['create', 'edit'],
-            'parameters' => ['kit' => 'kit_id']
+            'parameters' => ['kit' => 'kit_id'],
         ]
-    );
+    ); // end kits API routes
 
-
-    Route::group([ 'prefix' => 'kits/{kit_id}' ], function () {
+    Route::group(['prefix' => 'kits/{kit_id}'], function () {
 
         // kit licenses
-        Route::get('licenses', 
+        Route::get('licenses',
             [
-                'as' => 'api.kits.licenses.index',
-                'uses' => 'PredefinedKitsController@indexLicenses',
+                Api\PredefinedKitsController::class,
+                'indexLicenses',
             ]
-        );
-        
-        Route::post('licenses', 
-            [
-                'as' => 'api.kits.licenses.store',
-                'uses' => 'PredefinedKitsController@storeLicense',
-            ]
-        );
-        
-        Route::put('licenses/{license_id}', 
-            [
-                'as' => 'api.kits.licenses.update',
-                'uses' => 'PredefinedKitsController@updateLicense',
-            ]
-        );
+        )->name('api.kits.licenses.index');
 
-        Route::delete('licenses/{license_id}', 
+        Route::post('licenses',
             [
-                'as' => 'api.kits.licenses.destroy',
-                'uses' => 'PredefinedKitsController@detachLicense',
+                Api\PredefinedKitsController::class,
+                'storeLicense',
             ]
-        );
-        
+        )->name('api.kits.licenses.store');
+
+        Route::put('licenses/{license_id}',
+            [
+                Api\PredefinedKitsController::class,
+                'updateLicense',
+            ]
+        )->name('api.kits.licenses.update');
+
+        Route::delete('licenses/{license_id}',
+            [
+                Api\PredefinedKitsController::class,
+                'detachLicense',
+            ]
+        )->name('api.kits.licenses.destroy');
+
         // kit models
-        Route::get('models', 
+        Route::get('models',
             [
-                'as' => 'api.kits.models.index',
-                'uses' => 'PredefinedKitsController@indexModels',
+                Api\PredefinedKitsController::class,
+                'indexModels',
             ]
-        );
-        
-        Route::post('models', 
-            [
-                'as' => 'api.kits.models.store',
-                'uses' => 'PredefinedKitsController@storeModel',
-            ]
-        );
-        
-        Route::put('models/{model_id}', 
-            [
-                'as' => 'api.kits.models.update',
-                'uses' => 'PredefinedKitsController@updateModel',
-            ]
-        );
+        )->name('api.kits.models.index');
 
-        Route::delete('models/{model_id}', 
+        Route::post('models',
             [
-                'as' => 'api.kits.models.destroy',
-                'uses' => 'PredefinedKitsController@detachModel',
+                Api\PredefinedKitsController::class,
+                'storeModel',
             ]
-        );
+        )->name('api.kits.models.store');
+
+        Route::put('models/{model_id}',
+            [
+                Api\PredefinedKitsController::class,
+                'updateModel',
+            ]
+        )->name('api.kits.models.update');
+
+        Route::delete('models/{model_id}',
+            [
+                Api\PredefinedKitsController::class,
+                'detachModel',
+            ]
+        )->name('api.kits.models.destroy');
 
         // kit accessories
-        Route::get('accessories', 
+        Route::get('accessories',
             [
-                'as' => 'api.kits.accessories.index',
-                'uses' => 'PredefinedKitsController@indexAccessories',
+                Api\PredefinedKitsController::class,
+                'indexAccessories',
             ]
-        );
-        
-        Route::post('accessories', 
-            [
-                'as' => 'api.kits.accessories.store',
-                'uses' => 'PredefinedKitsController@storeAccessory',
-            ]
-        );
-        
-        Route::put('accessories/{accessory_id}', 
-            [
-                'as' => 'api.kits.accessories.update',
-                'uses' => 'PredefinedKitsController@updateAccessory',
-            ]
-        );
+        )->name('api.kits.accessories.index');
 
-        Route::delete('accessories/{accessory_id}', 
+        Route::post('accessories',
             [
-                'as' => 'api.kits.accessories.destroy',
-                'uses' => 'PredefinedKitsController@detachAccessory',
+                Api\PredefinedKitsController::class,
+                'storeAccessory',
             ]
-        );
+        )->name('api.kits.accessories.store');
+
+        Route::put('accessories/{accessory_id}',
+            [
+                Api\PredefinedKitsController::class,
+                'updateAccessory',
+            ]
+        )->name('api.kits.accessories.update');
+
+        Route::delete('accessories/{accessory_id}',
+            [
+                Api\PredefinedKitsController::class,
+                'detachAccessory',
+            ]
+        )->name('api.kits.accessories.destroy');
 
         // kit consumables
-        Route::get('consumables', 
+        Route::get('consumables',
             [
-                'as' => 'api.kits.consumables.index',
-                'uses' => 'PredefinedKitsController@indexConsumables',
+                Api\PredefinedKitsController::class,
+                'indexConsumables',
             ]
-        );
-        
-        Route::post('consumables', 
-            [
-                'as' => 'api.kits.consumables.store',
-                'uses' => 'PredefinedKitsController@storeConsumable',
-            ]
-        );
-        
-        Route::put('consumables/{consumable_id}', 
-            [
-                'as' => 'api.kits.consumables.update',
-                'uses' => 'PredefinedKitsController@updateConsumable',
-            ]
-        );
+        )->name('api.kits.consumables.index');
 
-        Route::delete('consumables/{consumable_id}', 
+        Route::post('consumables',
             [
-                'as' => 'api.kits.consumables.destroy',
-                'uses' => 'PredefinedKitsController@detachConsumable',
+                Api\PredefinedKitsController::class,
+                'storeConsumable',
+            ]
+        )->name('api.kits.consumables.store');
+
+        Route::put('consumables/{consumable_id}',
+            [
+                Api\PredefinedKitsController::class,
+                'updateConsumable',
+            ]
+        )->name('api.kits.consumables.update');
+
+        Route::delete('consumables/{consumable_id}',
+            [
+                Api\PredefinedKitsController::class,
+                'detachConsumable',
+            ]
+        )->name('api.kits.consumables.destroy');
+
+    }); // end consumable routes
+
+    /**
+     * Reports API routes
+     */
+    Route::group(['prefix' => 'reports'], function () {
+
+        Route::get('activity',
+            [
+                Api\ReportsController::class,
+                'index',
+            ]
+        )->name('api.activity.index');
+
+        Route::get('activity/chart',
+            [
+                Api\ReportsController::class,
+                'activityChart',
+            ]
+        )->name('api.reports.activity.chart');
+    }); // end reports api routes
+
+    /**
+     * Dashboard widget API routes.
+     */
+    Route::group(['prefix' => 'dashboard'], function () {
+
+        Route::get('activity',
+            [
+                Api\DashboardController::class,
+                'activity',
+            ]
+        )->name('api.dashboard.activity');
+
+        Route::get('categories',
+            [
+                Api\DashboardController::class,
+                'categories',
+            ]
+        )->name('api.dashboard.categories');
+
+        Route::get('companies',
+            [
+                Api\DashboardController::class,
+                'companies',
+            ]
+        )->name('api.dashboard.companies');
+
+        Route::get('locations',
+            [
+                Api\DashboardController::class,
+                'locations',
+            ]
+        )->name('api.dashboard.locations');
+
+    }); // end dashboard widget api routes
+
+    /**
+     * Version API routes
+     */
+    Route::get('/version', function () {
+        return response()->json(
+            [
+                'version' => config('version.app_version'),
+                'build_version' => config('version.build_version'),
+                'hash_version' => config('version.hash_version'),
+                'full_version' => config('version.full_app_version'),
             ]
         );
+    }); // end version api routes
 
-    }); // kits group
-
-    Route::fallback(function(){
+    Route::fallback(function () {
         return response()->json(
             [
                 'status' => 'error',
                 'message' => '404 endpoint not found. Please check the API reference at https://snipe-it.readme.io/reference to find a valid API endpoint.',
                 'payload' => null,
             ], 404);
-    });
+    }); // end fallback routes
 
-});
+    /**
+     * Generate label routes
+     */
+    Route::post('hardware/labels', [
+        Api\AssetsController::class,
+        'getLabels',
+    ])->name('api.assets.labels');
+    // end generate label routes
 
+    /**
+     * Uploaded files API routes
+     */
 
+    // List files
+    Route::get('{object_type}/{id}/files',
+        [
+            Api\UploadedFilesController::class,
+            'index',
+        ]
+    )->name('api.files.index')
+        ->where(['object_type' => 'accessories|audits|assets|components|consumables|hardware|licenses|locations|maintenances|models|suppliers|users|companies|departments']);
+
+    // Get a file
+    Route::get('{object_type}/{id}/files/{file_id}',
+        [
+            Api\UploadedFilesController::class,
+            'show',
+        ]
+    )->name('api.files.show')
+        ->where(['object_type' => 'accessories|audits|assets|components|consumables|hardware|licenses|locations|maintenances|models|suppliers|users|companies|departments']);
+
+    // Upload files(s)
+    Route::post('{object_type}/{id}/files',
+        [
+            Api\UploadedFilesController::class,
+            'store',
+        ]
+    )->name('api.files.store')
+        ->where(['object_type' => 'accessories|audits|assets|components|consumables|hardware|licenses|locations|maintenances|models|suppliers|users|companies|departments']);
+
+    // Delete files(s)
+    Route::delete('{object_type}/{id}/files/{file_id}/delete',
+        [
+            Api\UploadedFilesController::class,
+            'destroy',
+        ]
+    )->name('api.files.destroy')
+        ->where(['object_type' => 'accessories|assets|components|consumables|hardware|licenses|locations|maintenances|models|suppliers|users|companies|departments']);
+
+}); // end API routes

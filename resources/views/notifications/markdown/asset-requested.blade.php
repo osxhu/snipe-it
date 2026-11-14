@@ -13,19 +13,22 @@
 @if (isset($qty))
 | **{{ trans('general.qty') }}** | {{ $qty }}
 @endif
-| **{{ trans('mail.user') }}** | [{{ $requested_by->present()->fullName() }}]({{ route('users.show', $requested_by->id) }}) |
+| **{{ trans('mail.user') }}** | [{{ $requested_by->display_name }}]({{ route('users.show', $requested_by->id) }}) |
 | **{{ trans('general.requested') }}** | {{ $requested_date }} |
 @if ((isset($item->asset_tag)) && ($item->asset_tag!=''))
 | **{{ trans('mail.asset_tag') }}** | {{ $item->asset_tag }} |
 @endif
-@if ((isset($item->name)) && ($item->name!=''))
-| **{{ trans('mail.asset_name') }}** | {{ $item->name }} |
+@if (isset($item->model->category))
+| **{{ trans('general.category') }}** | {{ $item->model->category->name }} |
 @endif
-@if (isset($item->assetstatus))
-| **{{ trans('general.status') }}** | {{ $item->assetstatus->name }}
+@if ((isset($item->name)) && ($item->name!=''))
+| **{{ trans('general.item_name') }}** | {{ $item->name }} |
+@endif
+@if (isset($item->status))
+    | **{{ trans('general.status') }}** | {{ $item->status->name }}
 @endif
 @if ($item->assignedTo)
-| **Checked out to** | {!! $item->assignedTo->present()->nameUrl() !!} ({{ $item->present()->statusMeta }})
+| **{{ trans('general.checked_out_to') }}** | {!! $item->assignedTo->present()->nameUrl() !!} ({{ $item->present()->statusMeta }})
 @endif
 @if (isset($item->manufacturer))
 | **{{ trans('general.manufacturer') }}** | {{ $item->manufacturer->name }} |
@@ -40,10 +43,16 @@
 | **{{ trans('mail.serial') }}** | {{ $item->serial }} |
 @endif
 @if ((isset($last_checkout)) && ($last_checkout!=''))
-| **Last Checkout** | {{ $last_checkout }} |
+| **{{ trans('general.last_checkout') }}** | {{ $last_checkout }} |
 @endif
 @if ((isset($expected_checkin)) && ($expected_checkin!=''))
 | **{{ trans('mail.expecting_checkin_date') }}** | {{ $expected_checkin }} |
+@endif
+@if ((isset($start_date)) && ($start_date!=''))
+| **{{ trans('general.start_date') }}** | {{ $start_date }} |
+@endif
+@if ((isset($end_date)) && ($end_date!=''))
+| **{{ trans('general.end_date') }}** | {{ $end_date }} |
 @endif
 @foreach($fields as $field)
 @if (($item->{ $field->db_column_name() }!='') && ($field->show_in_email) && ($field->field_encrypted=='0'))

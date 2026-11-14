@@ -24,36 +24,41 @@ class CustomFieldRequest extends FormRequest
      */
     public function rules(Request $request)
     {
-
         $rules = [];
 
-        switch($this->method())
-        {
+        $rules['associate_fieldsets.*'] = 'nullable|integer|exists:custom_fieldsets,id';
+
+        switch ($this->method()) {
 
             // Brand new
             case 'POST':
-            {
-                $rules['name'] = "required|unique:custom_fields";
-                break;
-            }
 
-            // Save all fields
+                $rules['name'] = 'required|unique:custom_fields';
+                break;
+
+                // Save all fields
             case 'PUT':
-                $rules['name'] = "required";
+                $rules['name'] = 'required';
                 break;
 
-            // Save only what's passed
+                // Save only what's passed
             case 'PATCH':
-            {
-                $rules['name'] = "required";
+
+                $rules['name'] = 'required';
                 break;
-            }
 
             default:break;
         }
 
         $rules['custom_format'] = 'valid_regex';
 
-        return  $rules;
+        return $rules;
+    }
+
+    public function messages()
+    {
+        return [
+            'associate_fieldsets.*.exists' => trans('admin/custom_fields/message/does_not_exist'),
+        ];
     }
 }

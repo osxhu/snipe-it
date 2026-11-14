@@ -3,8 +3,9 @@
 namespace App\Listeners;
 
 use Carbon\Carbon;
-use DB;
 use Illuminate\Auth\Events\Login;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class LogSuccessfulLogin
 {
@@ -21,15 +22,13 @@ class LogSuccessfulLogin
     /**
      * Handle the event.
      *
-     * @param  Login  $event
      * @return void
      */
     public function handle(Login $event)
     {
-        $now = new Carbon();
+        $now = new Carbon;
 
         try {
-
             DB::table('login_attempts')->insert(
                 [
                     'username' => $event->user->username,
@@ -40,9 +39,7 @@ class LogSuccessfulLogin
                 ]
             );
         } catch (\Exception $e) {
-            \Log::debug($e);
+            Log::debug($e);
         }
-
-
     }
 }

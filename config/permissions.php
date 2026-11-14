@@ -6,633 +6,494 @@
  |--------------------------------------------------------------------------
 */
 
+return [
 
-return array(
-
-    'Global' => array(
-        array(
+    'Superuser' => [
+        [
             'permission' => 'superuser',
-            'label'      => 'Super User',
-            'note'       => 'Determines whether the user has full access to all aspects of the admin. This setting overrides any more specific permissions throughout the system. ',
-            'display'    => true,
-        ),
-    ),
+            'display' => true,
+        ],
+    ],
 
-    'Admin' => array(
-        array(
+    'Admin' => [
+        [
             'permission' => 'admin',
-            'label'      => '',
-            'note'       => 'Determines whether the user has access to most aspects of the admin. ',
-            'display'    => true,
-        )
-    ),
+            'display' => true,
+        ],
+    ],
 
-    'CSV Import' => array(
-        array(
+    'Import' => [
+        [
             'permission' => 'import',
-            'label'      => '',
-            'note'       => 'This will allow users to import even if access to users, assets, etc is denied elsewhere.',
-            'display'    => true,
-        )
-    ),
+            'display' => true,
+        ],
+    ],
 
-    'Reports' => array(
-        array(
+    'Reports' => [
+        [
             'permission' => 'reports.view',
-            'label'      => 'View',
-            'note'       => 'Determines whether the user has the ability to view reports.',
-            'display'    => true,
-        ),
-    ),
+            'display' => true,
+        ],
+    ],
 
-    'Assets' => array(
-        array(
+    'Assets' => [
+        [
             'permission' => 'assets.view',
-            'label'      => 'View ',
-            'note'       => '',
-            'display'    => true,
-        ),
-        array(
+            'display' => true,
+        ],
+        [
             'permission' => 'assets.create',
-            'label'      => 'Create ',
-            'note'       => '',
-            'display'    => true,
-        ),
-        array(
+            'display' => true,
+        ],
+        [
             'permission' => 'assets.edit',
-            'label'      => 'Edit  ',
-            'note'       => '',
-            'display'    => true,
-        ),
-        array(
+            'display' => true,
+        ],
+        [
             'permission' => 'assets.delete',
-            'label'      => 'Delete ',
-            'note'       => '',
-            'display'    => true,
-        ),
-        array(
+            'display' => true,
+        ],
+        [
             'permission' => 'assets.checkout',
-            'label'      => 'Checkout ',
-            'note'       => '',
-            'display'    => false,
-        ),
+            'display' => false,
+        ],
 
-        array(
+        [
             'permission' => 'assets.checkin',
-            'label'      => 'Checkin ',
-            'note'       => '',
-            'display'    => true,
-        ),
+            'display' => true,
+        ],
 
-        array(
+        [
             'permission' => 'assets.checkout',
-            'label'      => 'Checkout ',
-            'note'       => '',
-            'display'    => true,
-        ),
+            'display' => true,
+        ],
 
-        array(
+        [
             'permission' => 'assets.audit',
-            'label'      => 'Audit ',
-            'note'       => 'Allows the user to mark an asset as physically inventoried.',
-            'display'    => true,
-        ),
+            'display' => true,
+        ],
 
+        [
+            'permission' => 'assets.view.encrypted_custom_fields',
+            'display' => true,
+        ],
+        [
+            'permission' => 'assets.files',
+            'display' => true,
+        ],
 
-        array(
-            'permission' => 'assets.view.requestable',
-            'label'      => 'View Requestable Assets',
-            'note'       => '',
-            'display'    => true,
-        ),
+    ],
 
-    ),
-
-    'Accessories' => array(
-        array(
+    'Accessories' => [
+        [
             'permission' => 'accessories.view',
-            'label'      => 'View ',
-            'note'       => '',
-            'display'    => true,
-        ),
-        array(
+            'display' => true,
+        ],
+        [
             'permission' => 'accessories.create',
-            'label'      => 'Create ',
-            'note'       => '',
-            'display'    => true,
-        ),
-        array(
+            'display' => true,
+        ],
+        [
             'permission' => 'accessories.edit',
-            'label'      => 'Edit ',
-            'note'       => '',
-            'display'    => true,
-        ),
-        array(
+            'display' => true,
+        ],
+        [
             'permission' => 'accessories.delete',
-            'label'      => 'Delete ',
-            'note'       => '',
-            'display'    => true,
-        ),
-        array(
+            'display' => true,
+        ],
+        [
             'permission' => 'accessories.checkout',
-            'label'      => 'Checkout ',
-            'note'       => '',
-            'display'    => true,
-        ),
-        array(
+            'display' => true,
+        ],
+        [
             'permission' => 'accessories.checkin',
-            'label'      => 'Checkin ',
-            'note'       => '',
-            'display'    => true,
-        ),
-    ),
+            'display' => true,
+        ],
+        [
+            'permission' => 'accessories.files',
+            'display' => true,
+        ],
 
-    'Consumables' => array(
-        array(
+    ],
+
+    'Consumables' => [
+        [
             'permission' => 'consumables.view',
-            'label'      => 'View',
-            'note'       => '',
-            'display'    => true,
-        ),
-        array(
+            'display' => true,
+        ],
+        [
             'permission' => 'consumables.create',
-            'label'      => 'Create ',
-            'note'       => '',
-            'display'    => true,
-        ),
-        array(
+            'display' => true,
+        ],
+        [
             'permission' => 'consumables.edit',
-            'label'      => 'Edit ',
-            'note'       => '',
-            'display'    => true,
-        ),
-        array(
+            'display' => true,
+        ],
+        [
             'permission' => 'consumables.delete',
-            'label'      => 'Delete ',
-            'note'       => '',
-            'display'    => true,
-        ),
-        array(
+            'display' => true,
+        ],
+        [
             'permission' => 'consumables.checkout',
-            'label'      => 'Checkout ',
-            'note'       => '',
-            'display'    => true,
-        ),
-    ),
+            'display' => true,
+        ],
+        [
+            'permission' => 'consumables.files',
+            'display' => true,
+        ],
+    ],
 
-
-    'Licenses' => array(
-        array(
+    'Licenses' => [
+        [
             'permission' => 'licenses.view',
-            'label'      => 'View',
-            'note'       => '',
-            'display'    => true,
-        ),
-        array(
+            'display' => true,
+        ],
+        [
             'permission' => 'licenses.create',
-            'label'      => 'Create ',
-            'note'       => '',
-            'display'    => true,
-        ),
-        array(
+            'display' => true,
+        ],
+        [
             'permission' => 'licenses.edit',
-            'label'      => 'Edit ',
-            'note'       => '',
-            'display'    => true,
-        ),
-        array(
+            'display' => true,
+        ],
+        [
             'permission' => 'licenses.delete',
-            'label'      => 'Delete ',
-            'note'       => '',
-            'display'    => true,
-        ),
-        array(
+            'display' => true,
+        ],
+        [
             'permission' => 'licenses.checkout',
-            'label'      => 'Checkout ',
-            'note'       => '',
-            'display'    => true,
-        ),
-        array(
+            'display' => true,
+        ],
+        [
+            'permission' => 'licenses.checkin',
+            'display' => true,
+        ],
+        [
             'permission' => 'licenses.keys',
-            'label'      => 'View License Keys',
-            'note'       => '',
-            'display'    => true,
-        ),
-    ),
+            'display' => true,
+        ],
+        [
+            'permission' => 'licenses.files',
+            'display' => true,
+        ],
+    ],
 
-
-    'Components' => array(
-        array(
+    'Components' => [
+        [
             'permission' => 'components.view',
-            'label'      => 'View',
-            'note'       => '',
-            'display'    => true,
-        ),
-        array(
+            'display' => true,
+        ],
+        [
             'permission' => 'components.create',
-            'label'      => 'Create ',
-            'note'       => '',
-            'display'    => true,
-        ),
-        array(
+            'display' => true,
+        ],
+        [
             'permission' => 'components.edit',
-            'label'      => 'Edit ',
-            'note'       => '',
-            'display'    => true,
-        ),
-        array(
+            'display' => true,
+        ],
+        [
             'permission' => 'components.delete',
-            'label'      => 'Delete ',
-            'note'       => '',
-            'display'    => true,
-        ),
-        array(
+            'display' => true,
+        ],
+        [
             'permission' => 'components.checkout',
-            'label'      => 'Checkout ',
-            'note'       => '',
-            'display'    => true,
-        ),
-        array(
+            'display' => true,
+        ],
+        [
             'permission' => 'components.checkin',
-            'label'      => 'Checkin ',
-            'note'       => '',
-            'display'    => true,
-        ),
+            'display' => true,
+        ],
+        [
+            'permission' => 'components.files',
+            'display' => true,
+        ],
 
-    ),
+    ],
 
-    'Kits' => array(
-        array(
+    'Kits' => [
+        [
             'permission' => 'kits.view',
-            'label'      => 'View ',
-            'note'       => 'These are predefined kits that can be used to quickly checkout assets, licenses, etc.',
-            'display'    => true,
-        ),
-        array(
+            'display' => true,
+        ],
+        [
             'permission' => 'kits.create',
-            'label'      => 'Create ',
-            'note'       => '',
-            'display'    => true,
-        ),
-        array(
+            'display' => true,
+        ],
+        [
             'permission' => 'kits.edit',
-            'label'      => 'Edit  ',
-            'note'       => '',
-            'display'    => true,
-        ),
-        array(
+            'display' => true,
+        ],
+        [
             'permission' => 'kits.delete',
-            'label'      => 'Delete ',
-            'note'       => '',
-            'display'    => true,
-        ),
+            'display' => true,
+        ],
+    ],
 
-        array(
-            'permission' => 'kits.checkout',
-            'label'      => 'Checkout ',
-            'note'       => '',
-            'display'    => true,
-        ),
-    ),
-
-
-    'Users' => array(
-        array(
+    'Users' => [
+        [
             'permission' => 'users.view',
-            'label'      => 'View ',
-            'note'       => '',
-            'display'    => true,
-        ),
-        array(
+            'display' => true,
+        ],
+        [
             'permission' => 'users.create',
-            'label'      => 'Create Users',
-            'note'       => '',
-            'display'    => true,
-        ),
-        array(
+            'display' => true,
+        ],
+        [
             'permission' => 'users.edit',
-            'label'      => 'Edit Users',
-            'note'       => '',
-            'display'    => true,
-        ),
-        array(
+            'display' => true,
+        ],
+        [
             'permission' => 'users.delete',
-            'label'      => 'Delete Users',
-            'note'       => '',
-            'display'    => true,
-        ),
+            'display' => true,
+        ],
+        [
+            'permission' => 'users.files',
+            'display' => true,
+        ],
 
-    ),
+    ],
 
-
-    'Models' => array(
-        array(
+    'Models' => [
+        [
             'permission' => 'models.view',
-            'label'      => 'View ',
-            'note'       => '',
-            'display'    => true,
-        ),
-        array(
+            'display' => true,
+        ],
+        [
             'permission' => 'models.create',
-            'label'      => 'Create ',
-            'note'       => '',
-            'display'    => true,
-        ),
-        array(
+            'display' => true,
+        ],
+        [
             'permission' => 'models.edit',
-            'label'      => 'Edit  ',
-            'note'       => '',
-            'display'    => true,
-        ),
-        array(
+            'display' => true,
+        ],
+        [
             'permission' => 'models.delete',
-            'label'      => 'Delete ',
-            'note'       => '',
-            'display'    => true,
-        ),
+            'display' => true,
+        ],
+        [
+            'permission' => 'models.files',
+            'display' => true,
+        ],
 
-    ),
+    ],
 
-    'Categories' => array(
-        array(
+    'Categories' => [
+        [
             'permission' => 'categories.view',
-            'label'      => 'View ',
-            'note'       => '',
-            'display'    => true,
-        ),
-        array(
+            'display' => true,
+        ],
+        [
             'permission' => 'categories.create',
-            'label'      => 'Create ',
-            'note'       => '',
-            'display'    => true,
-        ),
-        array(
+            'display' => true,
+        ],
+        [
             'permission' => 'categories.edit',
-            'label'      => 'Edit  ',
-            'note'       => '',
-            'display'    => true,
-        ),
-        array(
+            'display' => true,
+        ],
+        [
             'permission' => 'categories.delete',
-            'label'      => 'Delete ',
-            'note'       => '',
-            'display'    => true,
-        ),
-    ),
+            'display' => true,
+        ],
+    ],
 
-    'Departments' => array(
-        array(
+    'Departments' => [
+        [
             'permission' => 'departments.view',
-            'label'      => 'View ',
-            'note'       => '',
-            'display'    => true,
-        ),
-        array(
+            'display' => true,
+        ],
+        [
             'permission' => 'departments.create',
-            'label'      => 'Create ',
-            'note'       => '',
-            'display'    => true,
-        ),
-        array(
+            'display' => true,
+        ],
+        [
             'permission' => 'departments.edit',
-            'label'      => 'Edit  ',
-            'note'       => '',
-            'display'    => true,
-        ),
-        array(
+            'display' => true,
+        ],
+        [
             'permission' => 'departments.delete',
-            'label'      => 'Delete ',
-            'note'       => '',
-            'display'    => true,
-        ),
-    ),
+            'display' => true,
+        ],
+        [
+            'permission' => 'departments.files',
+            'display' => true,
+        ],
+    ],
 
-    'Status Labels' => array(
-        array(
+    'Status Labels' => [
+        [
             'permission' => 'statuslabels.view',
-            'label'      => 'View ',
-            'note'       => '',
-            'display'    => true,
-        ),
-        array(
+            'display' => true,
+        ],
+        [
             'permission' => 'statuslabels.create',
-            'label'      => 'Create ',
-            'note'       => '',
-            'display'    => true,
-        ),
-        array(
+            'display' => true,
+        ],
+        [
             'permission' => 'statuslabels.edit',
-            'label'      => 'Edit  ',
-            'note'       => '',
-            'display'    => true,
-        ),
-        array(
+            'display' => true,
+        ],
+        [
             'permission' => 'statuslabels.delete',
-            'label'      => 'Delete ',
-            'note'       => '',
-            'display'    => true,
-        ),
-    ),
+            'display' => true,
+        ],
+    ],
 
-    'Custom Fields' => array(
-        array(
+    'Custom Fields' => [
+        [
             'permission' => 'customfields.view',
-            'label'      => 'View',
-            'note'       => '',
-            'display'    => true,
-        ),
-        array(
+            'display' => true,
+        ],
+        [
             'permission' => 'customfields.create',
-            'label'      => 'Create',
-            'note'       => '',
-            'display'    => true,
-        ),
-        array(
+            'display' => true,
+        ],
+        [
             'permission' => 'customfields.edit',
-            'label'      => 'Edit',
-            'note'       => '',
-            'display'    => true,
-        ),
-        array(
+            'display' => true,
+        ],
+        [
             'permission' => 'customfields.delete',
-            'label'      => 'Delete',
-            'note'       => '',
-            'display'    => true,
-        ),
-    ), 
+            'display' => true,
+        ],
+    ],
 
-    'Suppliers' => array(
-        array(
+    'Suppliers' => [
+        [
             'permission' => 'suppliers.view',
-            'label'      => 'View ',
-            'note'       => '',
-            'display'    => true,
-        ),
-        array(
+            'display' => true,
+        ],
+        [
             'permission' => 'suppliers.create',
-            'label'      => 'Create ',
-            'note'       => '',
-            'display'    => true,
-        ),
-        array(
+            'display' => true,
+        ],
+        [
             'permission' => 'suppliers.edit',
-            'label'      => 'Edit  ',
-            'note'       => '',
-            'display'    => true,
-        ),
-        array(
+            'display' => true,
+        ],
+        [
             'permission' => 'suppliers.delete',
-            'label'      => 'Delete ',
-            'note'       => '',
-            'display'    => true,
-        ),
-    ),
+            'display' => true,
+        ],
+        [
+            'permission' => 'suppliers.files',
+            'display' => true,
+        ],
+    ],
 
-
-    'Manufacturers' => array(
-        array(
+    'Manufacturers' => [
+        [
             'permission' => 'manufacturers.view',
-            'label'      => 'View ',
-            'note'       => '',
-            'display'    => true,
-        ),
-        array(
+            'display' => true,
+        ],
+        [
             'permission' => 'manufacturers.create',
-            'label'      => 'Create ',
-            'note'       => '',
-            'display'    => true,
-        ),
-        array(
+            'display' => true,
+        ],
+        [
             'permission' => 'manufacturers.edit',
-            'label'      => 'Edit  ',
-            'note'       => '',
-            'display'    => true,
-        ),
-        array(
+            'display' => true,
+        ],
+        [
             'permission' => 'manufacturers.delete',
-            'label'      => 'Delete ',
-            'note'       => '',
-            'display'    => true,
-        ),
-    ),
+            'display' => true,
+        ],
+    ],
 
-    'Depreciations' => array(
-        array(
+    'Depreciations' => [
+        [
             'permission' => 'depreciations.view',
-            'label'      => 'View ',
-            'note'       => '',
-            'display'    => true,
-        ),
-        array(
+            'display' => true,
+        ],
+        [
             'permission' => 'depreciations.create',
-            'label'      => 'Create ',
-            'note'       => '',
-            'display'    => true,
-        ),
-        array(
+            'display' => true,
+        ],
+        [
             'permission' => 'depreciations.edit',
-            'label'      => 'Edit  ',
-            'note'       => '',
-            'display'    => true,
-        ),
-        array(
+            'display' => true,
+        ],
+        [
             'permission' => 'depreciations.delete',
-            'label'      => 'Delete ',
-            'note'       => '',
-            'display'    => true,
-        ),
-    ),
+            'display' => true,
+        ],
+    ],
 
-    'Locations' => array(
-        array(
+    'Locations' => [
+        [
             'permission' => 'locations.view',
-            'label'      => 'View ',
-            'note'       => '',
-            'display'    => true,
-        ),
-        array(
+            'display' => true,
+        ],
+        [
             'permission' => 'locations.create',
-            'label'      => 'Create ',
-            'note'       => '',
-            'display'    => true,
-        ),
-        array(
+            'display' => true,
+        ],
+        [
             'permission' => 'locations.edit',
-            'label'      => 'Edit  ',
-            'note'       => '',
-            'display'    => true,
-        ),
-        array(
+            'display' => true,
+        ],
+        [
             'permission' => 'locations.delete',
-            'label'      => 'Delete ',
-            'note'       => '',
-            'display'    => true,
-        ),
-    ),
+            'display' => true,
+        ],
+        [
+            'permission' => 'locations.files',
+            'display' => true,
+        ],
+    ],
 
-    'Companies' => array(
-        array(
+    'Companies' => [
+        [
             'permission' => 'companies.view',
-            'label'      => 'View ',
-            'note'       => '',
-            'display'    => true,
-        ),
-        array(
+            'display' => true,
+        ],
+        [
             'permission' => 'companies.create',
-            'label'      => 'Create ',
-            'note'       => '',
-            'display'    => true,
-        ),
-        array(
+            'display' => true,
+        ],
+        [
             'permission' => 'companies.edit',
-            'label'      => 'Edit  ',
-            'note'       => '',
-            'display'    => true,
-        ),
-        array(
+            'display' => true,
+        ],
+        [
             'permission' => 'companies.delete',
-            'label'      => 'Delete ',
-            'note'       => '',
-            'display'    => true,
-        ),
-    ),
+            'display' => true,
+        ],
+        [
+            'permission' => 'companies.files',
+            'display' => true,
+        ],
+    ],
 
-
-
-
-    'Self' => array(
-        array(
+    'User (Self) Accounts' => [
+        [
             'permission' => 'self.two_factor',
-            'label'      => 'Two-Factor Authentication',
-            'note'       => 'The user may disable/enable two-factor authentication themselves if two-factor is enabled and set to selective.',
-            'display'    => true,
-        ),
+            'display' => true,
+        ],
 
-        array(
+        [
             'permission' => 'self.api',
-            'label'      => 'Create API Keys',
-            'note'       => 'The user create personal API keys to utilize the REST API.',
-            'display'    => true,
-        ),
+            'display' => true,
+        ],
 
-        array(
+        [
             'permission' => 'self.edit_location',
-            'label'      => 'Profile Edit Location',
-            'note'       => 'The user may update their own location in their profile. Note that this is not affected by any additional Users permissions you grant to this user or group.',
-            'display'    => true,
-        ),
+            'display' => true,
+        ],
 
-        array(
+        [
             'permission' => 'self.checkout_assets',
-            'label'      => 'Self-Checkout',
-            'note'       => 'This user may check out assets that are marked for self-checkout.',
-            'display'    => true,
-        ),
+            'display' => true,
+        ],
 
-    ),
+        [
+            'permission' => 'self.view_purchase_cost',
+            'display' => true,
+        ],
+        [
+            'permission' => 'assets.view.requestable',
+            'display' => true,
+        ],
 
+    ],
 
-
-
-
-);
+];

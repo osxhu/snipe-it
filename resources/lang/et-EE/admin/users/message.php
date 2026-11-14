@@ -1,0 +1,92 @@
+<?php
+
+return [
+
+    'accepted' => 'Selle kirje vastuvõtmise kinnitamine õnnestus.',
+    'declined' => 'Sellest kirjest keeldumine õnnestus.',
+    'accept_signature_write_failed' => 'Sinu vastuvõtuallkirja ei saanud salvestada. Vastuvõtmist ei registreeritud. Võta ühendust oma administraatoriga.',
+    'accept_pdf_write_failed' => 'Vastuvõtu PDF-faili ei saanud salvestada. Vastuvõtmist ei registreeritud. Võta ühendust oma administraatoriga.',
+    'bulk_manager_warn' => 'Sinu kasutajad on edukalt muudetud, kuid sinu juhi-kirjet ei salvestatud sest juht, kelle valisid oli ka muudatavate kasutajate hulgas ning kasutaja ei või olla ise-enda juht. Palun vali oma kasutajad uuesti, jättes juhi kõrvale.',
+    'user_exists' => 'Kasutaja on juba olemas!',
+    'cannot_delete' => 'Kasutajat pole olemas või sul puudub õigus teda kustutada.',
+    'user_not_found' => 'Kasutajat pole olemas või sul puudub õigus teda vaadata.',
+    'user_login_required' => 'Login väli on kohustuslik',
+    'user_has_no_assets_assigned' => 'Kasutajale pole praegu vahendeid määratud.',
+    'nothing_currently_assigned' => 'Praegu pole midagi määratud.',
+    'user_password_required' => 'Parooli väli on kohustuslik.',
+    'insufficient_permissions' => 'Ebapiisavad õigused.',
+    'auth_fields_denied' => 'Sul puudub õigus selle kasutaja autentimis- või aktiveerimisvälju muuta. Taotletud välju ei uuendatud: :fields',
+    'user_deleted_warning' => 'See kasutaja on kustutatud. Et kasutajat muuta või talle uusi vahendeid anda, pead ta esmalt taastama.',
+    'ldap_not_configured' => 'LDAP-i integreerimine pole selle installi jaoks konfigureeritud.',
+    'password_resets_sent' => 'Parooli taastamise link on saadetud valitud aktiivsetele kasutajatele kellel on õige emaili aadress.',
+    'not_activated' => 'See kasutaja ei saa sisse logida ega saa seetõttu vahendite vastuvõtmist e-posti teel kinnitada.',
+    'password_reset_sent' => 'Parooli taastamise aadress on saadetud :email!',
+    'user_has_no_email' => 'Selle kasutaja profiilis pole e-posti aadressi.',
+    'log_record_not_found' => 'Sellele kasutajale vastavat logikirjet ei leitud.',
+
+    'impersonate' => [
+        'started' => 'Oled nüüd sisse logitud kasutajana :name.',
+        'stopped' => 'Oled tagasi oma kontol.',
+        'cannot_impersonate_self' => 'Sa ei saa iseendana sisse logida.',
+        'cannot_impersonate_superuser' => 'Sa ei saa teise superkasutajana sisse logida.',
+        'target_not_active' => 'See kasutaja on deaktiveeritud või kustutatud ning temana ei saa sisse logida.',
+        'impersonator_missing' => 'Selle teise kasutajana tegutsemise seansi algset kontot pole enam olemas. Logi uuesti sisse.',
+    ],
+
+    'success' => [
+        'create' => 'Kasutaja loomine õnnestus.',
+        'update' => 'Kasutaja uuendamine õnnestus.',
+        'update_bulk' => 'Kasutajate uuendamine õnnestus!',
+        'delete' => 'Kasutaja kustutamine õnnestus.',
+        'ban' => 'Kasutaja bännimine õnnestus.',
+        'unban' => 'Kasutaja de-bännimine õnnestus.',
+        'suspend' => 'Kasutaja ajutine peatamine õnnestus.',
+        'unsuspend' => 'Kasutaja oli ebaõnnestunud.',
+        'restored' => 'Kasutaja taastamine õnnestus.',
+        'import' => 'Kasutajate importimine õnnestus.',
+        'acceptance_reminder_sent' => 'Vastuvõtmise kinnitamise meeldetuletus saadeti :count ootel kirje kohta.|Vastuvõtmise kinnitamise meeldetuletus saadeti :count ootel kirje kohta.',
+    ],
+
+    'error' => [
+        'create' => 'Kasutaja loomisel tekkis probleem. Palun proovi uuesti.',
+        'update' => 'Kasutaja uuendamisel tekkis probleem. Palun proovi uuesti.',
+        'delete' => 'Kasutaja kustutamisel tekkis probleem. Palun proovi uuesti.',
+        'delete_has_assets' => 'Sellel kasutajal on varad määratud ja teda ei saa kustutada.',
+        'delete_has_assets_var' => 'Sellele kasutajale on endiselt üks vahend määratud. Tagasta see esmalt.|Sellele kasutajale on endiselt :count vahendit määratud. Tagasta need esmalt.',
+        'delete_has_licenses_var' => 'Sellele kasutajale on endiselt üks litsentsi kasutuskoht määratud. Tagasta see esmalt.|Sellele kasutajale on endiselt :count litsentsi kasutuskohta määratud. Tagasta need esmalt.',
+        'delete_has_accessories_var' => 'Sellele kasutajale on endiselt üks tarvik määratud. Tagasta see esmalt.|Sellele kasutajale on endiselt :count tarvikut määratud. Tagasta need esmalt.',
+        'delete_has_locations_var' => 'See kasutaja haldab endiselt üht asukohta. Vali esmalt teine haldur.|See kasutaja haldab endiselt :count asukohta. Vali esmalt teine haldur.',
+        'delete_has_users_var' => 'See kasutaja on endiselt teise kasutaja juht. Vali esmalt sellele kasutajale teine juht.|See kasutaja on endiselt :count kasutaja juht. Vali esmalt neile teine juht.',
+        'unsuspend' => 'Kasutaja pole probleemi lahendanud. Palun proovi uuesti.',
+        'import' => 'Kasutajate importimisel tekkis probleem. Palun proovi uuesti.',
+        'asset_already_accepted' => 'Selle kirje vastuvõtmine on juba kinnitatud.',
+        'accept_or_decline' => 'Te peate selle vara kas aktsepteerima või loobuma.',
+        'cannot_delete_yourself' => 'Meil oleks väga kahju, kui end kustutaksid. Palun mõtle veel järele.',
+        'incorrect_user_accepted' => 'Varasemat vara, mille olete proovinud aktsepteerida, ei olnud teie jaoks kontrollitud.',
+        'ldap_could_not_connect' => 'LDAP-serveriga ei õnnestunud ühendust luua. Palun kontrollige oma LDAP-i serveri konfiguratsiooni LDAP-i konfiguratsioonifailis. <br>Viga LDAP serverist:',
+        'ldap_could_not_bind' => 'LDAP-serverit ei saa siduda. Palun kontrollige oma LDAP-i serveri konfiguratsiooni LDAP-i konfiguratsioonifailis. <br>Viga LDAP serverist:',
+        'ldap_could_not_search' => 'LDAP-serverit ei õnnestunud otsida. Palun kontrollige oma LDAP-i serveri konfiguratsiooni LDAP-i konfiguratsioonifailis. <br>Viga LDAP serverist:',
+        'ldap_could_not_get_entries' => 'LDAP-serverisse tehtud sissekandeid ei saanud. Palun kontrollige oma LDAP-i serveri konfiguratsiooni LDAP-i konfiguratsioonifailis. <br>Viga LDAP serverist:',
+        'password_ldap' => 'Selle konto parooli haldab LDAP / Active Directory. Parooli muutmiseks võtke ühendust oma IT-osakonnaga.',
+        'multi_company_items_assigned' => 'Sellele kasutajale on määratud teisele ettevõttele kuuluvaid kirjeid. Tagasta need või muuda nende ettevõtet.',
+        'no_pending_acceptances' => 'Sellel kasutajal pole ootel vastuvõtmisi, mille kohta meeldetuletust saata.',
+        'company_not_permitted' => 'Üks või mitu taotletud ettevõttemäärangut jäävad väljapoole sulle lubatud ettevõtete ulatust.',
+    ],
+
+    'deletefile' => [
+        'error' => 'Faili ei kustutatud. Palun proovi uuesti.',
+        'success' => 'Fail kustutati.',
+    ],
+
+    'upload' => [
+        'error' => 'Fail(e) ei laetud üles. Palun proovi uuesti.',
+        'success' => 'Fail(id) laeti edukalt üles.',
+        'nofiles' => 'Sa ei valinud üles laadimiseks ühtegi faili',
+        'invalidfiles' => 'Üks või mitu sinu failidest on kas liiga suured või ei ole lubatud tüüpi. Lubatud tüübid on png, gif, jpg, doc, docx, pdf ja txt.',
+    ],
+
+    'inventorynotification' => [
+        'error' => 'Sellele kasutajale pole e-posti aadressi määratud.',
+        'success' => 'Kasutajat teavitati talle praegu väljastatud vahenditest.',
+    ],
+];

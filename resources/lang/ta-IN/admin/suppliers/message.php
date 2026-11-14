@@ -1,0 +1,28 @@
+<?php
+
+return [
+
+    'deleted' => 'Deleted supplier',
+    'does_not_exist' => 'சப்ளையர் இல்லை.',
+    'assoc_items' => 'This supplier is currently associated with at least one asset, accessory, consumable, component, license, or maintenance record and cannot be deleted. Please update those items to no longer reference this supplier and try again. ',
+
+    'create' => [
+        'error' => 'சப்ளையர் உருவாக்கப்படவில்லை, மீண்டும் முயற்சிக்கவும்.',
+        'success' => 'சப்ளையர் வெற்றிகரமாக உருவாக்கப்பட்டது.',
+    ],
+
+    'update' => [
+        'error' => 'சப்ளையர் புதுப்பிக்கப்படவில்லை, மீண்டும் முயற்சிக்கவும்',
+        'success' => 'சப்ளையர் வெற்றிகரமாக புதுப்பிக்கப்பட்டது.',
+    ],
+
+    'delete' => [
+        'confirm' => 'இந்த சப்ளையரை நிச்சயமாக நீக்க விரும்புகிறீர்களா?',
+        'error' => 'சப்ளையரை நீக்குவதில் ஒரு சிக்கல் இருந்தது. தயவு செய்து மீண்டும் முயற்சிக்கவும்.',
+        'success' => 'சப்ளையர் வெற்றிகரமாக நீக்கப்பட்டது.',
+        'not_found' => 'Supplier not found.',
+        'bulk_success' => 'Supplier deleted successfully.|:count suppliers were deleted successfully.',
+        'partial_success' => '.',
+    ],
+
+];

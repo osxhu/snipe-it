@@ -1,0 +1,33 @@
+<?php
+
+return [
+    'info' => 'Valige oma varade aruandele vajalikud valikud.',
+    'deleted_user' => 'Kustutatud kasutaja',
+    'send_reminder' => 'Saada meeldetuletus',
+    'cannot_send_reminder' => 'Kasutaja on kustutatud või tal puudub e-posti aadress, mistõttu ei saa talle meeldetuletust saata',
+    'reminder_sent' => 'Meeldetuletus saadetud',
+    'reminder_sent_count' => '{0}Ühtegi meeldetuletust ei saadetud|{1}Saadeti üks meeldetuletus|[2,*]Saadeti :count meeldetuletust',
+    'acceptance_deleted' => 'Vastuvõtmise kinnitamise taotlus kustutatud',
+    'acceptance_request' => 'Vastuvõtmise kinnitamise taotlus',
+    'custom_export' => [
+        'asset_company' => 'Vahendi ettevõte',
+        'asset_serial' => 'Vahendi seerianumber',
+        'assigned_asset_tag' => 'Väljastatud vahendi inventarinumber',
+        'user_address' => 'Kasutaja aadress',
+        'user_company' => 'Kasutaja ettevõte',
+        'user_city' => 'Kasutaja linn',
+        'user_state' => 'Kasutaja maakond',
+        'user_country' => 'Kasutaja riik',
+        'user_zip' => 'Kasutaja postiindeks',
+        'target_notes' => 'Märkmed',
+    ],
+    'open_saved_template' => 'Ava salvestatud mall',
+    'save_template' => 'Salvesta mall',
+    'select_a_template' => 'Vali mall',
+    'template_name' => 'Malli nimi',
+    'update_template' => 'Uuenda malli',
+    'share_template' => 'Jaga seda malli',
+    'template_shared' => 'Sinuga jagatud mall',
+    'template_shared_with_others' => 'Teistega jagatud mall',
+    'template_not_shared' => 'Malli pole teistega jagatud',
+];

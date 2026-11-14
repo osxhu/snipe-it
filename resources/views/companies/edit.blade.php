@@ -1,26 +1,105 @@
-@extends('layouts/edit-form', [
-    'createText' => trans('admin/companies/table.create') ,
-    'updateText' => trans('admin/companies/table.update'),
-    'helpPosition'  => 'right',
-    'helpText' => trans('help.companies'),
-    'formAction' => (isset($item->id)) ? route('companies.update', ['company' => $item->id]) : route('companies.store'),
-])
+@extends('layouts/default')
+
+{{-- Page title --}}
+@section('title')
+    @if ($item->id)
+        {{ trans('admin/companies/table.update') }}
+    @else
+        {{ trans('admin/companies/table.create') }}
+    @endif
+    @parent
+@stop
 
 {{-- Page content --}}
-@section('inputFields')
-@include ('partials.forms.edit.name', ['translated_name' => trans('admin/companies/table.name')])
+@section('content')
 
-<!-- Image -->
-@if ($item->image)
-    <div class="form-group {{ $errors->has('image_delete') ? 'has-error' : '' }}">
-        <label class="col-md-3 control-label" for="image_delete">{{ trans('general.image_delete') }}</label>
-        <div class="col-md-5">
-            {{ Form::checkbox('image_delete') }}
-            <img src="{{ Storage::disk('public')->url(app('companies_upload_path').e($item->image)) }}" class="img-responsive" />
-            {!! $errors->first('image_delete', '<span class="alert-msg">:message</span>') !!}
-        </div>
-    </div>
-@endif
+<x-container class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1 col-sm-12 col-sm-offset-0">
 
-@include ('partials.forms.edit.image-upload')
+    <x-form :$item route="{{ isset($item->id) ? route('companies.update', ['company' => $item->id]) : route('companies.store') }}">
+
+        <x-box top_submit>
+            @if ($item->id)
+                <x-slot:header>{{ $item->name }}</x-slot:header>
+            @endif
+
+            <x-form.row
+                :label="trans('admin/companies/table.name')"
+                :$item
+                name="name"
+            />
+
+            <x-input.company-select
+                :label="trans('admin/companies/table.parent')"
+                name="parent_id"
+                :selected="old('parent_id', $item->parent_id)"
+                :onlyTopLevel="true"
+                :excludeId="$item->id ?? null"
+                hideNewButton
+            />
+
+            <x-form.row
+                :label="trans('admin/suppliers/table.phone')"
+                :$item
+                name="phone"
+                type="tel"
+                input_icon="phone"
+                input_group_addon="left"
+            />
+
+            <x-form.row
+                :label="trans('admin/suppliers/table.fax')"
+                :$item
+                name="fax"
+                type="tel"
+                input_icon="fax"
+                input_group_addon="left"
+                :maxlength="34"
+            />
+
+            <x-form.row
+                :label="trans('admin/suppliers/table.email')"
+                :$item
+                name="email"
+                type="email"
+                input_icon="email"
+                input_group_addon="left"
+            />
+
+            <x-form.row
+                :label="trans('general.notes')"
+                :$item
+                name="notes"
+                type="textarea"
+                :placeholder="trans('general.placeholders.notes')"
+            />
+
+            <x-input.image-upload :item="$item" :imagePath="app('companies_upload_path')" />
+
+            @can('superuser')
+                <fieldset name="integration-settings">
+                    <x-form.legend help_text="{{trans('general.integration_settings_help')}}">
+                        {{ trans('general.integration_settings') }}
+                    </x-form.legend>
+                    <livewire:integration-settings-form :company="$item"/>
+                </fieldset>
+            @endcan
+
+            <fieldset name="color-preferences">
+                <x-form.legend help_text="{{ trans('general.tag_color_help') }}">
+                    {{ trans('general.tag_color') }}
+                </x-form.legend>
+                <x-form.row
+                    :label="trans('general.tag_color')"
+                    :$item
+                    name="tag_color"
+                    type="colorpicker"
+                />
+            </fieldset>
+
+        </x-box>
+
+    </x-form>
+
+</x-container>
+
 @stop

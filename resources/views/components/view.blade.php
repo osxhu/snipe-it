@@ -2,144 +2,175 @@
 
 {{-- Page title --}}
 @section('title')
-
  {{ $component->name }}
  {{ trans('general.component') }}
 @parent
 @stop
 
-{{-- Right header --}}
 @section('header_right')
-  @can('manage', $component)
-    <div class="dropdown pull-right">
-      <button class="btn btn-default dropdown-toggle" data-toggle="dropdown">
-        {{ trans('button.actions') }}
-          <span class="caret"></span>
-      </button>
-      <ul class="dropdown-menu pull-right" role="menu22">
-        @if ($component->assigned_to != '')
-          @can('checkin', $component)
-          <li role="menuitem">
-            <a href="{{ route('checkin/component', $component->id) }}">
-              {{ trans('admin/components/general.checkin') }}
-            </a>
-          </li>
-          @endcan
-        @else
-          @can('checkout', $component)
-          <li role="menuitem">
-            <a href="{{ route('checkout/component', $component->id)  }}">
-              {{ trans('admin/components/general.checkout') }}
-            </a>
-          </li>
-          @endcan
+    <x-button.info-panel-toggle/>
+@endsection
+
+@section('content')
+<x-container columns="2">
+        @if ($snipe_component->deleted_at != '')
+            <x-page-column>
+                <x-callout type="warning" icon="warning" live="assertive">
+                    {{ trans('general.component_deleted_warning') }}
+                </x-callout>
+            </x-page-column>
         @endif
 
-        @can('update', $component)
-        <li role="menuitem">
-          <a href="{{ route('components.edit', $component->id) }}">
-            {{ trans('admin/components/general.edit') }}
-          </a>
-        </li>
-        @endcan
-      </ul>
-    </div>
-  @endcan
-@stop
+        <x-page-column class="col-md-9 main-panel">
+            <x-tabs>
+                <x-slot:tabnav>
+
+                    <x-tabs.nav-item
+                            name="assigned"
+                            icon_type="checkedout"
+                            label="{{ trans('general.assigned') }}"
+                            count="{{ $snipe_component->numCheckedOut() }}"
+                    />
+
+                    <x-tabs.files-tab :item="$snipe_component" count="{{ $snipe_component->uploads()->count() }}"/>
+                    <x-tabs.orders-tab count="{{ $snipe_component->orderItemsCount() }}"/>
+                    <x-tabs.history-tab count="{{ $snipe_component->history()->count() }}" :model="$snipe_component"/>
+                    @if ($snipe_component->deleted_at == '')
+                        <x-tabs.upload-tab :item="$snipe_component"/>
+                    @endif
+
+                </x-slot:tabnav>
+
+                <x-slot:tabpanes>
+
+                    <x-tabs.pane name="assigned">
+
+                        <x-slot:table_header>
+                            {{ trans('general.assigned') }}
+                        </x-slot:table_header>
+
+                        @can('checkin', $snipe_component)
+                            <x-slot:bulkactions>
+                                <x-table.bulk-actions
+                                    name="componentCheckedOut"
+                                    :action_route="route('components.bulkcheckin.show')"
+                                    model_name="components_asset"
+                                    :actions="[
+                                        'checkin' => ['label' => trans('general.checkin')],
+                                    ]"
+                                />
+                            </x-slot:bulkactions>
+                        @endcan
+
+                        <x-table
+                            name="componentCheckedOut" :presenter="\App\Presenters\ComponentPresenter::checkedOut()"
+                            :api_url="route('api.components.assets', $snipe_component)"
+                        />
+
+                    </x-tabs.pane>
+
+                    <!-- start files tab pane -->
+                    <x-tabs.pane name="files">
+                        <x-table.files object_type="components" :object="$snipe_component"/>
+                    </x-tabs.pane>
+
+                    <!-- start orders tab pane -->
+                    <x-tabs.pane name="orders">
+                        <x-table.orders name="componentOrders" :route="route('api.order-items.index', ['item_type' => \App\Models\Component::class, 'item_id' => $snipe_component->id])"/>
+                    </x-tabs.pane>
+
+                    <!-- start history tab pane -->
+                    <x-tabs.pane name="history">
+                        <x-table.history name="componentHistory" :model="$snipe_component" :route="route('api.components.history', $snipe_component)"/>
+                    </x-tabs.pane>
+
+                </x-slot:tabpanes>
+            </x-tabs>
+        </x-page-column>
+        <x-page-column class="col-md-3">
+
+            <x-box class="side-box expanded">
+                <x-info-panel :infoPanelObj="$snipe_component" img_path="{{ app('components_upload_url') }}" :qr_code_url="route('qr_code/common', ['object_type' => 'components', 'id' => $snipe_component->id])">
+
+                    <x-slot:buttons>
+                        @if ($snipe_component->deleted_at != '')
+                            {{-- Soft-deleted: keep every action visually
+                                 present but non-interactive so admins see
+                                 what's unavailable while viewing the
+                                 restorable record. x-button.edit hides
+                                 itself on deleted rows, so render disabled
+                                 stand-ins inline. --}}
+                            @can('update', $snipe_component)
+                                <a href="#" class="btn btn-sm btn-warning hidden-print disabled" data-tooltip="true" data-placement="top" data-title="{{ trans('general.component_deleted_warning') }}">
+                                    <x-icon type="edit" class="fa-fw" />
+                                </a>
+                            @endcan
+                            {{-- Clone works on deleted items so admins
+                                 can spin up a replacement row without
+                                 restoring the original. Component gets
+                                 the normal active clone affordance. --}}
+                            <x-button.clone :item="$snipe_component" :route="route('components.clone.create', $snipe_component->id)"/>
+                            @can('checkout', $snipe_component)
+                                <button type="button" class="btn btn-sm bg-maroon hidden-print disabled" data-tooltip="true" data-placement="top" data-title="{{ trans('general.component_deleted_warning') }}" disabled>
+                                    <x-icon type="checkout" class="fa-fw" />
+                                </button>
+                            @endcan
+                            @can('update', $snipe_component)
+                                <button type="button" class="btn btn-sm btn-primary adjust-quantity disabled" data-tooltip="true" data-placement="top" data-title="{{ trans('general.component_deleted_warning') }}" disabled>
+                                    <x-icon type="plus-minus" class="fa-fw" />
+                                    <span class="sr-only">{{ trans('general.adjust_quantity') }}</span>
+                                </button>
+                            @endcan
+                            <x-button.restore :item="$snipe_component" :route="route('components.restore', ['componentID' => $snipe_component->id])" />
+                        @else
+                            <x-button.edit :item="$snipe_component" :route="route('components.edit', $snipe_component->id)"/>
+                            <x-button.clone :item="$snipe_component" :route="route('components.clone.create', $snipe_component->id)"/>
+                            <x-button.checkout :item="$snipe_component" :route="route('components.checkout.show', $snipe_component->id)" />
+                            @can('update', $snipe_component)
+                                @php
+                                    $lastOrder = $snipe_component->lastOrderDefaults();
+                                    $adjustDisabledReason = $snipe_component->archived
+                                        ? trans('general.archived_item_label', ['item_type' => trans('general.component')])
+                                        : null;
+                                @endphp
+                                <button type="button"
+                                    class="btn btn-sm btn-primary adjust-quantity {{ $adjustDisabledReason ? 'disabled' : '' }}"
+                                    data-tooltip="true"
+                                    title="{{ $adjustDisabledReason ?? trans('general.adjust_quantity') }}"
+                                    @disabled($adjustDisabledReason !== null)
+                                    data-adjust-url="{{ route('components.adjust-quantity', $snipe_component) }}"
+                                    data-item-name="{{ e($snipe_component->name) }}"
+                                    data-available="{{ (int) $snipe_component->numRemaining() }}"
+                                    @if ($lastOrder && $lastOrder['unit_cost'] !== null) data-last-unit-cost="{{ $lastOrder['unit_cost'] }}" @endif
+                                    @if ($lastOrder && $lastOrder['currency'] !== null) data-last-currency="{{ e($lastOrder['currency']) }}" @endif
+                                >
+                                    <x-icon type="plus-minus" class="fa-fw" />
+                                    <span class="sr-only">{{ trans('general.adjust_quantity') }}</span>
+                                </button>
+                            @endcan
+                            <x-button.delete :item="$snipe_component" />
+                        @endif
+                    </x-slot:buttons>
+
+                </x-info-panel>
+            </x-box>
+        </x-page-column>
+    </x-container>
+
+@endsection
 
 
-{{-- Page content --}}
-@section('content')
-
-<div class="row">
-  <div class="col-md-9">
-    <div class="box box-default">
-      <div class="box-body">
-        <div class="row">
-          <div class="col-md-12">
-            <div class="table table-responsive">
-
-              <table
-                      data-cookie-id-table="componentsCheckedoutTable"
-                      data-pagination="true"
-                      data-id-table="componentsCheckedoutTable"
-                      data-search="true"
-                      data-side-pagination="server"
-                      data-show-columns="true"
-                      data-show-export="true"
-                      data-show-footer="true"
-                      data-show-refresh="true"
-                      data-sort-order="asc"
-                      data-sort-name="name"
-                      id="componentsCheckedoutTable"
-                      class="table table-striped snipe-table"
-                      data-url="{{ route('api.components.assets', $component->id)}}"
-                      data-export-options='{
-                "fileName": "export-components-{{ str_slug($component->name) }}-checkedout-{{ date('Y-m-d') }}",
-                "ignoreColumn": ["actions","image","change","checkbox","checkincheckout","icon"]
-                }'>
-                <thead>
-                <tr>
-                  <th data-searchable="false" data-sortable="false" data-field="name" data-formatter="hardwareLinkFormatter">
-                    {{ trans('general.asset') }}
-                  </th>
-                  <th data-searchable="false" data-sortable="false" data-field="qty">
-                    {{ trans('general.qty') }}
-                  </th>
-                  <th data-searchable="false" data-sortable="false" data-field="created_at" data-formatter="dateDisplayFormatter">
-                    {{ trans('general.date') }}
-                  </th>
-                  <th data-switchable="false" data-searchable="false" data-sortable="false" data-field="checkincheckout" data-formatter="componentsInOutFormatter">
-                    {{ trans('general.checkin') }}/{{ trans('general.checkout') }}
-                  </th>
-                </tr>
-                </thead>
-              </table>
-
-            </div>
-          </div> <!-- .col-md-12-->
-        </div>
-      </div>
-    </div>
-  </div> <!-- .col-md-9-->
-
-
-  <!-- side address column -->
-  <div class="col-md-3">
-    @if ($component->image!='')
-      <div class="col-md-12 text-center" style="padding-bottom: 15px;">
-        <a href="{{ Storage::disk('public')->url('components/'.e($component->image)) }}" data-toggle="lightbox">
-          <img src="{{ Storage::disk('public')->url('components/'.e($component->image)) }}" class="img-responsive img-thumbnail" alt="{{ $component->name }}"></a>
-      </div>
-
-    @endif
-
-    @if ($component->serial!='')
-    <div class="col-md-12" style="padding-bottom: 5px;"><strong>{{ trans('admin/hardware/form.serial') }}: </strong>
-    {{ $component->serial }} </div>
-    @endif
-
-    @if ($component->purchase_date)
-    <div class="col-md-12" style="padding-bottom: 5px;"><strong>{{ trans('admin/components/general.date') }}: </strong>
-    {{ $component->purchase_date }} </div>
-    @endif
-
-    @if ($component->purchase_cost)
-    <div class="col-md-12" style="padding-bottom: 5px;"><strong>{{ trans('admin/components/general.cost') }}:</strong>
-    {{ $snipeSettings->default_currency }}
-
-    {{ \App\Helpers\Helper::formatCurrencyOutput($component->purchase_cost) }} </div>
-    @endif
-
-    @if ($component->order_number)
-    <div class="col-md-12" style="padding-bottom: 5px;"><strong>{{ trans('general.order_number') }}:</strong>
-    {{ $component->order_number }} </div>
-    @endif
-  </div>
-</div> <!-- .row-->
-
-@stop
 
 @section('moar_scripts')
-@include ('partials.bootstrap-table', ['exportFile' => 'component' . $component->name . '-export', 'search' => false])
-@stop
+    @if ($snipe_component->deleted_at == '')
+        @can('files', $snipe_component)
+            <x-modals.upload-file item-type="components" :item-id="$snipe_component->id" />
+        @endcan
+
+        @can('update', $snipe_component)
+            <x-modals.adjust-quantity />
+        @endcan
+    @endif
+
+    @include ('partials.bootstrap-table', ['exportFile' => 'component' . $snipe_component->name . '-export', 'search' => false])
+@endsection

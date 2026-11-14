@@ -1,0 +1,81 @@
+<?php
+
+return [
+
+    'update' => [
+        'error' => 'Uuendamise ajal on ilmnenud viga.',
+        'success' => 'Seaded uuendati edukalt.',
+    ],
+    'backup' => [
+        'delete_confirm' => 'Kas olete kindel, et soovite varundamisfaili kustutada? Seda toimingut ei saa tagasi võtta.',
+        'file_deleted' => 'Varundusfail kustutati edukalt.',
+        'generated' => 'Uus varundamisfail loodi edukalt.',
+        'file_not_found' => 'Seda varundamisfaili ei leitud serverist.',
+        'restore_warning' => 'Jah, taasta. Mõistan, et see kirjutab üle kõik praegu andmebaasis olevad andmed. Ühtlasi logitakse välja kõik kasutajad (kaasa arvatud mina).',
+        'restore_confirm' => 'Kas oled kindel, et soovid taastada andmebaasi failist :filename?',
+        'delete_disabled_help' => 'Varukoopiate kustutamine on keelatud. Selle lubamiseks võta ühendust oma administraatoriga.',
+    ],
+    'restore' => [
+        'success' => 'Sinu süsteemi varukoopia on taastatud. Logi uuesti sisse.',
+        'archive_invalid' => 'Valitud varukoopiafail (:filename) pole kehtiv ZIP-arhiiv. Taastamine katkestati enne andmebaasi muutmist.',
+        'zip_extension_missing' => 'Selles serveris pole PHP ZIP-laiendus laaditud. Varukoopiaarhiivi ei saa kontrollida ning andmekao vältimiseks taastamine katkestati. Palu serveri administraatoril paigaldada ext-zip.',
+        'pre_backup_failed' => 'Taastamiseelse turvavarukoopia loomine ebaõnnestus. Taastamine katkestati, et olemasolevat andmebaasi ei hävitataks ilma taastamisvõimaluseta.',
+        'failed_with_backup' => 'Taastamine ebaõnnestus. Olemasolev andmebaas tühjendati taastamiskatse käigus, kuid taastamiseelne varukoopia salvestati asukohta :backup ja seda saab kasutada taastamiseks.',
+    ],
+    'purge' => [
+        'error' => 'Puhastamise ajal on tekkinud viga.',
+        'validation_failed' => 'Teie puhta kinnitus on vale. Palun sisestage kinnituskastes sõna "DELETE".',
+        'success' => 'Kustutatud andmed on edukalt puhastatud.',
+    ],
+    'mail' => [
+        'sending' => 'Testkirja saatmine...',
+        'success' => 'Kiri saadetud!',
+        'error' => 'Kirja saatmine ebaõnnestus.',
+        'additional' => 'Täiendavat veateadet ei antud. Kontrolli e-posti seadeid ja rakenduse logi.',
+    ],
+    'ldap' => [
+        'testing' => 'LDAP-ühenduse, sidumise ja päringu testimine...',
+        '500' => 'Serveri viga 500. Lisateabe saamiseks kontrolli serveri logisid.',
+        'error' => 'Midagi läks valesti :(',
+        'sync_success' => 'Näidisena 10 kasutajat, kelle LDAP-server sinu seadete põhjal tagastas:',
+        'testing_authentication' => 'LDAP-autentimise testimine...',
+        'authentication_success' => 'Kasutaja autentimine LDAP-i kaudu õnnestus!',
+    ],
+    'labels' => [
+        'null_template' => 'Sildimalli ei leitud. Vali mall.',
+    ],
+    'webhook' => [
+        'sending' => ':app testteate saatmine...',
+        'success' => 'Sinu :webhook_name integratsioon töötab!',
+        'success_pt1' => 'Õnnestus! Otsi testteadet kanalist ',
+        'success_pt2' => ' ja klõpsa seadete salvestamiseks kindlasti allolevat nuppu SALVESTA.',
+        '500' => 'Serveri viga 500.',
+        'error' => 'Midagi läks valesti. :app vastas: :error_message',
+        'error_redirect' => 'VIGA: 301/302 :endpoint tagastab ümbersuunamise. Turvakaalutlustel me ümbersuunamisi ei järgi. Kasuta tegelikku lõpp-punkti.',
+        'error_misc' => 'Midagi läks valesti. :( ',
+        'webhook_fail' => ' veebikonksu teavitus ebaõnnestus: kontrolli, kas URL on endiselt kehtiv.',
+        'webhook_channel_not_found' => ' veebikonksu kanalit ei leitud.',
+        'ms_teams_deprecation' => 'Valitud Microsoft Teamsi veebikonksu URL-i tugi lõpeb 31. detsembril 2025. Kasuta töövoo URL-i. Microsofti juhised töövoo loomiseks leiad <a href="https://support.microsoft.com/en-us/office/create-incoming-webhooks-with-workflows-for-microsoft-teams-8ae491c7-0394-4861-ba59-055e33f75498" target="_blank">siit.</a>',
+    ],
+    'location_scoping' => [
+        'not_saved' => 'Sinu seadeid ei salvestatud.',
+        'mismatch' => 'Andmebaasis on üks kirje, mis vajab sinu tähelepanu enne asukohapõhise piirangu lubamist.|Andmebaasis on :count kirjet, mis vajavad sinu tähelepanu enne asukohapõhise piirangu lubamist.',
+    ],
+    'oauth' => [
+        'token_revoked' => 'Isikliku juurdepääsutõendi tühistamine õnnestus.',
+        'token_unrevoked' => 'Isikliku juurdepääsutõendi taasaktiveerimine õnnestus.',
+        'token_not_found' => 'Seda isiklikku juurdepääsutõendit ei leitud.',
+        'token_revoke_error' => 'Juurdepääsutõendi tühistamisel tekkis viga.',
+        'token_unrevoke_error' => 'Juurdepääsutõendi taasaktiveerimisel tekkis viga.',
+        'client_created' => 'OAuthi kliendi loomine õnnestus.',
+        'client_updated' => 'OAuthi kliendi uuendamine õnnestus.',
+        'client_deleted' => 'OAuthi kliendi kustutamine õnnestus.',
+        'client_revoked' => 'OAuthi kliendi tühistamine õnnestus.',
+        'client_unrevoked' => 'OAuthi kliendi taasaktiveerimine õnnestus.',
+        'client_not_found' => 'Seda OAuthi klienti ei leitud.',
+        'token_deleted' => 'Juurdepääsutõendi tühistamine õnnestus.',
+        'client_delete_denied' => 'Sul puudub õigus seda klienti kustutada.',
+        'client_edit_denied' => 'Sul puudub õigus seda klienti muuta.',
+        'token_delete_denied' => 'Sul puudub õigus seda juurdepääsutõendit tühistada.',
+    ],
+];

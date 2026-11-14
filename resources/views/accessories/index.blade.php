@@ -1,55 +1,52 @@
 @extends('layouts/default')
 
-{{-- Page title --}}
-@section('title')
-{{ trans('general.accessories') }}
-@parent
+@section('title0')
+    @if (request('status') === 'Archived')
+        {{ trans('general.archived') }}
+    @elseif (request('status') === 'Deleted')
+        {{ ucfirst(trans('general.deleted')) }}
+    @endif
+    {{ trans('general.accessories') }}
 @stop
 
-@section('header_right')
-    @can('create', \App\Models\Accessory::class)
-        <a href="{{ route('accessories.create') }}" class="btn btn-primary pull-right"> {{ trans('general.create') }}</a>
-    @endcan
+{{-- Page title --}}
+@section('title')
+    @yield('title0')  @parent
 @stop
+
 
 {{-- Page content --}}
 @section('content')
+    <x-container>
+        <x-box name="accessories" sr_only_title>
+            <x-table.accessories
+                name="accessories"
+                :route="route('api.accessories.index', ['status' => e(request('status'))])"
+                fixed_right_number="3"
+                :presenter="\App\Presenters\AccessoryPresenter::dataTableLayout(match (request('status')) {
+                    'Deleted' => ['archived'],
+                    'Archived' => ['deleted_at'],
+                    default => ['archived', 'deleted_at'],
+                })"
+            />
+        </x-box>
+        <x-shiftclick/>
+    </x-container>
 
-<div class="row">
-  <div class="col-md-12">
 
-    <div class="box box-default">
-      <div class="box-body">
-        <div class="table-responsive">
 
-            <table
-                data-columns="{{ \App\Presenters\AccessoryPresenter::dataTableLayout() }}"
-                data-cookie-id-table="accessoriesTable"
-                data-pagination="true"
-                data-id-table="accessoriesTable"
-                data-search="true"
-                data-side-pagination="server"
-                data-show-columns="true"
-                data-show-export="true"
-                data-show-refresh="true"
-                data-show-footer="true"
-                data-sort-order="asc"
-                id="accessoriesTable"
-                class="table table-striped snipe-table"
-                data-url="{{route('api.accessories.index') }}"
-                data-export-options='{
-                    "fileName": "export-accessories-{{ date('Y-m-d') }}",
-                    "ignoreColumn": ["actions","image","change","checkbox","checkincheckout","icon"]
-                    }'>
-          </table>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
 
+    @can('update', \App\Models\Accessory::class)
+    <x-modals.adjust-quantity />
+@endcan
 @stop
 
+
 @section('moar_scripts')
-@include ('partials.bootstrap-table')
+    @include ('partials.bootstrap-table')
+
+    <x-table.advanced-search
+        tableId="accessoriesListingTable"
+        :model="\App\Models\Accessory::class"
+    />
 @stop

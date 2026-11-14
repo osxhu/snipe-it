@@ -1,280 +1,900 @@
 <?php
 
+namespace Database\Factories;
+
 use App\Models\Company;
+use App\Models\User;
+use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Database\Eloquent\Model;
 
-$password = bcrypt('password');
+/**
+ * @extends Factory<User>
+ */
+class UserFactory extends Factory
+{
+    /**
+     * Set by ->forCompany() and ->withoutCompany() to suppress the default
+     * "attach a fresh Company via the pivot" behavior in configure(). Laravel
+     * factory chain calls clone the factory, and clone copies protected
+     * properties, so setting this in a chained state persists through create().
+     */
+    protected bool $skipDefaultCompanyAttach = false;
 
-$factory->define(App\Models\User::class, function (Faker\Generator $faker) use ($password) {
-    return [
-        'activated' => 1,
-        'address' => $faker->address,
-        'city' => $faker->city,
-        'company_id' => rand(1,4),
-        'country' => $faker->country,
-        'department_id' => rand(1,6),
-        'email' => $faker->safeEmail,
-        'employee_num' => $faker->numberBetween(3500, 35050),
-        'first_name' => $faker->firstName,
-        'jobtitle' => $faker->jobTitle,
-        'last_name' => $faker->lastName,
-        'locale' => $faker->locale,
-        'location_id' => rand(1,5),
-        'notes' => 'Created by DB seeder',
-        'password' => $password,
-        'permissions' => '{"user":"0"}',
-        'phone' => $faker->phoneNumber,
-        'state' => $faker->stateAbbr,
-        'username' => $faker->username,
-        'zip' => $faker->postcode
-    ];
-});
+    /**
+     * Define the model's default state.
+     *
+     * @return array
+     */
+    public function definition()
+    {
+        // ~10% of seeded users get an employment end_date roughly
+        // centered on today, so the calendar's user.end_date lane has
+        // enough content to look populated on a demo install. Tests
+        // pinning specific dates via state overrides still win.
+        $endDate = $this->faker->boolean(10)
+            ? $this->faker->dateTimeBetween('-30 days', '+9 months', date_default_timezone_get())->format('Y-m-d')
+            : null;
 
+        return [
+            'activated' => 1,
+            'address' => $this->faker->address(),
+            'city' => $this->faker->city(),
+            'country' => $this->faker->country(),
+            'created_by' => 1,
+            'display_name' => null,
+            'email' => $this->faker->safeEmail(),
+            'employee_num' => $this->faker->numberBetween(3500, 35050),
+            'end_date' => $endDate,
+            'first_name' => $this->faker->firstName(),
+            'jobtitle' => $this->faker->jobTitle(),
+            'last_name' => $this->faker->lastName(),
+            'locale' => 'en-US',
+            'mobile' => $this->faker->phoneNumber(),
+            'notes' => 'Created by DB seeder',
+            'password' => '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', // password
+            'permissions' => '{}',
+            'phone' => $this->faker->phoneNumber(),
+            'state' => $this->faker->stateAbbr(),
+            'username' => $this->faker->unique()->username(),
+            'zip' => $this->faker->postcode(),
+        ];
+    }
 
-$factory->state(App\Models\User::class, 'first-admin', function ($faker) {
-    return [
-        'first_name' => 'Admin',
-        'last_name' => 'User',
-        'username' => 'admin',
-        'permissions' => '{"superuser":"1"}',
-    ];
-});
+    /**
+     * By default every factory-created user is attached to a fresh Company via
+     * the company_user pivot (the authoritative source of user-company
+     * membership under FMCS). Use ->forCompany($company) to pin them to a
+     * specific company, or ->withoutCompany() to leave them unattached
+     * ("floater" users).
+     *
+     * We hook create() (not afterCreating) because chained state calls clone
+     * the factory and register additional afterCreating closures that captured
+     * $this at closure-creation time. Reading $this->skipDefaultCompanyAttach
+     * at create() time gives us the final factory's flag, which is what we
+     * want.
+     */
+    public function create($attributes = [], ?Model $parent = null)
+    {
+        $result = parent::create($attributes, $parent);
 
-$factory->state(App\Models\User::class, 'snipe-admin', function ($faker) {
-    return [
-        'first_name' => 'Snipe E.',
-        'last_name' => 'Head',
-        'username' => 'snipe',
-        'email' => 'snipe@snipe.net',
-        'permissions' => '{"superuser":"1"}',
-    ];
-});
+        $models = $result instanceof User
+            ? [$result]
+            : $result->all();
 
+        foreach ($models as $user) {
+            // Watson\Validating hooks the saving event and silently returns
+            // false from save() when validation fails (its default is not to
+            // throw). Laravel's Factory::store() doesn't check the return
+            // value, so we can arrive here with an unpersisted user whose id
+            // is still null. Attaching a pivot row for that user would insert
+            // NULL into company_user.user_id and violate the NOT NULL. Skip.
+            if (! $user->exists) {
+                continue;
+            }
+            if ($this->skipDefaultCompanyAttach) {
+                continue;
+            }
+            if ($user->companies()->count() > 0) {
+                continue;
+            }
+            $company = Company::factory()->create();
+            $user->companies()->attach($company->id);
+            $user->syncLegacyCompanyIdMirror();
+        }
 
-// USER GLOBAL PERMISSION STATES
-$factory->state(App\Models\User::class, 'superuser', function ($faker) {
-    return [
-        'permissions' => '{"superuser":"1"}',
-    ];
-});
+        return $result;
+    }
 
-$factory->state(App\Models\User::class, 'admin', function ($faker) {
-    return [
-        'permissions' => '{"admin":"1"}',
-        'manager_id' => rand(1,2),
-    ];
-});
-// USER ASSET PERMISSION STATES
-$factory->state(App\Models\User::class, 'view-assets', function ($faker) {
-    return [
-        'permissions' => '{"assets.view":"1"}',
-    ];
-});
+    /**
+     * Preserve the skipDefaultCompanyAttach flag across chained states.
+     * Laravel's Factory::newInstance() rebuilds the factory but does not carry
+     * arbitrary properties, so we copy the flag ourselves.
+     */
+    protected function newInstance(array $arguments = [])
+    {
+        $factory = parent::newInstance($arguments);
+        $factory->skipDefaultCompanyAttach = $this->skipDefaultCompanyAttach;
 
-$factory->state(App\Models\User::class, 'create-assets', function ($faker) {
-    return [
-        'permissions' => '{"assets.create":"1"}',
-    ];
-});
+        return $factory;
+    }
 
-$factory->state(App\Models\User::class, 'edit-assets', function ($faker) {
-    return [
-        'permissions' => '{"assets.edit":"1"}',
-    ];
-});
+    /**
+     * Attach the created user to a specific Company via the pivot. Accepts
+     * either a Company model or a raw company id, so tests can call
+     * ->forCompany($company) or ->forCompany($company->id) interchangeably.
+     */
+    public function forCompany(Company|int $company): static
+    {
+        $companyId = $company instanceof Company ? $company->id : $company;
 
-$factory->state(App\Models\User::class, 'delete-assets', function ($faker) {
-    return [
-        'permissions' => '{"assets.delete":"1"}',
-    ];
-});
+        $factory = $this->afterCreating(function (User $user) use ($companyId) {
+            $user->companies()->syncWithoutDetaching([$companyId]);
+            $user->syncLegacyCompanyIdMirror();
+        });
+        $factory->skipDefaultCompanyAttach = true;
 
-$factory->state(App\Models\User::class, 'checkin-assets', function ($faker) {
-    return [
-        'permissions' => '{"assets.checkin":"1"}',
-    ];
-});
+        return $factory;
+    }
 
-$factory->state(App\Models\User::class, 'checkout-assets', function ($faker) {
-    return [
-        'permissions' => '{"assets.checkout":"1"}',
-    ];
-});
+    /**
+     * Create a user with no company_user pivot rows (a "floater" under FMCS
+     * floater mode).
+     */
+    public function withoutCompany(): static
+    {
+        $factory = clone $this;
+        $factory->skipDefaultCompanyAttach = true;
 
-$factory->state(App\Models\User::class, 'view-requestable-assets', function ($faker) {
-    return [
-        'permissions' => '{"assets.view.requestable":"1"}',
-    ];
-});
+        return $factory;
+    }
 
-// USER ACCESSORY PERMISSION STATES
-$factory->state(App\Models\User::class, 'view-accessories', function ($faker) {
-    return [
-        'permissions' => '{"accessories.view":"1"}',
-    ];
-});
+    public function deletedUser()
+    {
+        return $this->state(function () {
+            return [
+                'deleted_at' => $this->faker->dateTime(),
+            ];
+        });
+    }
 
-$factory->state(App\Models\User::class, 'create-accessories', function ($faker) {
-    return [
-        'permissions' => '{"accessories.create":"1"}',
-    ];
-});
+    public function firstAdmin()
+    {
+        return $this->state(function () {
+            return [
+                'first_name' => 'Admin',
+                'last_name' => 'User',
+                'username' => 'admin',
+                'avatar' => '1.jpg',
+                'permissions' => '{"superuser":"1"}',
+            ];
+        });
+    }
 
-$factory->state(App\Models\User::class, 'edit-accessories', function ($faker) {
-    return [
-        'permissions' => '{"accessories.edit":"1"}',
-    ];
-});
+    public function snipeAdmin()
+    {
+        return $this->state(function () {
+            return [
+                'first_name' => 'Snipe E.',
+                'last_name' => 'Head',
+                'username' => 'snipe',
+                'avatar' => '2.jpg',
+                'email' => 'snipe@snipe.net',
+                'permissions' => '{"superuser":"1"}',
+            ];
+        });
+    }
 
-$factory->state(App\Models\User::class, 'delete-accessories', function ($faker) {
-    return [
-        'permissions' => '{"accessories.delete":"1"}',
-    ];
-});
+    public function testAdmin()
+    {
+        return $this->state(function () {
+            return [
+                'first_name' => 'Alison',
+                'last_name' => 'Gianotto',
+                'username' => 'agianotto@grokability.com',
+                'avatar' => '2.jpg',
+                'email' => 'agianotto@grokability.com',
+                'permissions' => '{"superuser":"1"}',
+            ];
+        });
+    }
 
-$factory->state(App\Models\User::class, 'checkin-accessories', function ($faker) {
-    return [
-        'permissions' => '{"accessories.checkin":"1"}',
-    ];
-});
+    public function superuser()
+    {
+        return $this->appendPermission(['superuser' => '1']);
+    }
 
-$factory->state(App\Models\User::class, 'checkout-accessories', function ($faker) {
-    return [
-        'permissions' => '{"accessories.checkout":"1"}',
-    ];
-});
+    public function admin()
+    {
+        return $this->state(function () {
+            return [
+                'permissions' => '{"admin":"1"}',
+                'manager_id' => function () {
+                    return User::where('permissions->superuser', '1')->first() ?? User::factory()->firstAdmin();
+                },
+            ];
+        });
+    }
 
-// USER CONSUMABLE PERMISSION STATES
-$factory->state(App\Models\User::class, 'view-consumables', function ($faker) {
-    return [
-        'permissions' => '{"consumables.view":"1"}',
-    ];
-});
+    public function viewAssets()
+    {
+        return $this->appendPermission(['assets.view' => '1']);
+    }
 
-$factory->state(App\Models\User::class, 'create-consumables', function ($faker) {
-    return [
-        'permissions' => '{"consumables.create":"1"}',
-    ];
-});
+    public function viewAssetHistory()
+    {
+        return $this->appendPermission(['assets.view' => '1']);
+    }
 
-$factory->state(App\Models\User::class, 'edit-consumables', function ($faker) {
-    return [
-        'permissions' => '{"consumables.edit":"1"}',
-    ];
-});
+    public function viewUserHistory()
+    {
+        return $this->appendPermission(['users.view' => '1']);
+    }
 
-$factory->state(App\Models\User::class, 'delete-consumables', function ($faker) {
-    return [
-        'permissions' => '{"consumables.delete":"1"}',
-    ];
-});
+    public function viewLocationHistory()
+    {
+        return $this->appendPermission(['locations.view' => '1']);
+    }
 
-$factory->state(App\Models\User::class, 'checkin-consumables', function ($faker) {
-    return [
-        'permissions' => '{"consumables.checkin":"1"}',
-    ];
-});
+    public function viewLocations()
+    {
+        return $this->appendPermission(['locations.view' => '1']);
+    }
 
-$factory->state(App\Models\User::class, 'checkout-consumables', function ($faker) {
-    return [
-        'permissions' => '{"consumables.checkout":"1"}',
-    ];
-});
+    public function createLocations()
+    {
+        return $this->appendPermission(['locations.create' => '1']);
+    }
 
-// USER LICENSE PERMISSION STATES
-$factory->state(App\Models\User::class, 'view-licenses', function ($faker) {
-    return [
-        'permissions' => '{"licenses.view":"1"}',
-    ];
-});
+    public function cloneLocations()
+    {
+        return $this->viewLocations()->createLocations();
+    }
 
-$factory->state(App\Models\User::class, 'create-licenses', function ($faker) {
-    return [
-        'permissions' => '{"licenses.create":"1"}',
-    ];
-});
+    public function viewAccessoryHistory()
+    {
+        return $this->appendPermission(['accessories.view' => '1']);
+    }
 
-$factory->state(App\Models\User::class, 'edit-licenses', function ($faker) {
-    return [
-        'permissions' => '{"licenses.edit":"1"}',
-    ];
-});
+    public function viewLicenseHistory()
+    {
+        return $this->appendPermission(['licenses.view' => '1']);
+    }
 
-$factory->state(App\Models\User::class, 'delete-licenses', function ($faker) {
-    return [
-        'permissions' => '{"licenses.delete":"1"}',
-    ];
-});
+    public function viewComponentHistory()
+    {
+        return $this->appendPermission(['components.view' => '1']);
+    }
 
-$factory->state(App\Models\User::class, 'checkout-licenses', function ($faker) {
-    return [
-        'permissions' => '{"licenses.checkout":"1"}',
-    ];
-});
+    public function viewConsumableHistory()
+    {
+        return $this->appendPermission(['consumables.view' => '1']);
+    }
 
-$factory->state(App\Models\User::class, 'view-keys-licenses', function ($faker) {
-    return [
-        'permissions' => '{"licenses.keys":"1"}',
-    ];
-});
+    public function createAssets()
+    {
+        return $this->appendPermission(['assets.create' => '1']);
+    }
 
-// USER COMPONENTS PERMISSION STATES
-$factory->state(App\Models\User::class, 'view-components', function ($faker) {
-    return [
-        'permissions' => '{"components.view":"1"}',
-    ];
-});
+    /**
+     * Grants the permission set the `clone` policy composes for assets
+     * (view + create). Tests exercising the clone happy-path go through
+     * here so any future change to what `AssetPolicy::clone` requires
+     * gets picked up in one place rather than every test file. Negative
+     * tests still call `createAssets()` / `viewAssets()` directly to
+     * exercise a specific subset.
+     */
+    public function cloneAssets()
+    {
+        return $this->viewAssets()->createAssets();
+    }
 
-$factory->state(App\Models\User::class, 'create-components', function ($faker) {
-    return [
-        'permissions' => '{"components.create":"1"}',
-    ];
-});
+    public function editAssets()
+    {
+        return $this->appendPermission(['assets.edit' => '1']);
+    }
 
-$factory->state(App\Models\User::class, 'edit-components', function ($faker) {
-    return [
-        'permissions' => '{"components.edit":"1"}',
-    ];
-});
+    public function deleteAssets()
+    {
+        return $this->appendPermission(['assets.delete' => '1']);
+    }
 
-$factory->state(App\Models\User::class, 'delete-components', function ($faker) {
-    return [
-        'permissions' => '{"components.delete":"1"}',
-    ];
-});
+    public function checkinAssets()
+    {
+        return $this->appendPermission(['assets.checkin' => '1']);
+    }
 
-$factory->state(App\Models\User::class, 'checkin-components', function ($faker) {
-    return [
-        'permissions' => '{"components.checkin":"1"}',
-    ];
-});
+    public function checkoutAssets()
+    {
+        return $this->appendPermission(['assets.checkout' => '1']);
+    }
 
-$factory->state(App\Models\User::class, 'checkout-components', function ($faker) {
-    return [
-        'permissions' => '{"components.checkout":"1"}',
-    ];
-});
+    public function viewRequestableAssets()
+    {
+        return $this->appendPermission(['assets.view.requestable' => '1']);
+    }
 
-// USER USER PERMISSION STATES
-$factory->state(App\Models\User::class, 'view-users', function ($faker) {
-    return [
-        'permissions' => '{"users.view":"1"}',
-    ];
-});
+    public function viewEncryptedCustomFields()
+    {
+        return $this->appendPermission(['assets.view.encrypted_custom_fields' => '1']);
+    }
 
-$factory->state(App\Models\User::class, 'create-users', function ($faker) {
-    return [
-        'permissions' => '{"users.create":"1"}',
-    ];
-});
+    public function createAssetModels()
+    {
+        return $this->appendPermission(['models.create' => '1']);
+    }
 
-$factory->state(App\Models\User::class, 'edit-users', function ($faker) {
-    return [
-        'permissions' => '{"users.edit":"1"}',
-    ];
-});
+    public function cloneAssetModels()
+    {
+        return $this->viewAssetModels()->createAssetModels();
+    }
 
-$factory->state(App\Models\User::class, 'delete-users', function ($faker) {
-    return [
-        'permissions' => '{"users.delete":"1"}',
-    ];
-});
+    public function deleteAssetModels()
+    {
+        return $this->appendPermission(['models.delete' => '1']);
+    }
+
+    public function editAssetModels()
+    {
+        return $this->appendPermission(['models.edit' => '1']);
+    }
+
+    public function viewAssetModels()
+    {
+        return $this->appendPermission(['models.view' => '1']);
+    }
+
+    public function viewAccessories()
+    {
+        return $this->appendPermission(['accessories.view' => '1']);
+    }
+
+    public function createAccessories()
+    {
+        return $this->appendPermission(['accessories.create' => '1']);
+    }
+
+    public function cloneAccessories()
+    {
+        return $this->viewAccessories()->createAccessories();
+    }
+
+    public function editAccessories()
+    {
+        return $this->appendPermission(['accessories.edit' => '1']);
+    }
+
+    public function deleteAccessories()
+    {
+        return $this->appendPermission(['accessories.delete' => '1']);
+    }
+
+    public function checkinAccessories()
+    {
+        return $this->appendPermission(['accessories.checkin' => '1']);
+    }
+
+    public function checkoutAccessories()
+    {
+        return $this->appendPermission(['accessories.checkout' => '1']);
+    }
+
+    public function viewConsumables()
+    {
+        return $this->appendPermission(['consumables.view' => '1']);
+    }
+
+    public function createConsumables()
+    {
+        return $this->appendPermission(['consumables.create' => '1']);
+    }
+
+    public function cloneConsumables()
+    {
+        return $this->viewConsumables()->createConsumables();
+    }
+
+    public function editConsumables()
+    {
+        return $this->appendPermission(['consumables.edit' => '1']);
+    }
+
+    public function deleteConsumables()
+    {
+        return $this->appendPermission(['consumables.delete' => '1']);
+    }
+
+    public function checkinConsumables()
+    {
+        return $this->appendPermission(['consumables.checkin' => '1']);
+    }
+
+    public function checkoutConsumables()
+    {
+        return $this->appendPermission(['consumables.checkout' => '1']);
+    }
+
+    public function createDepartments()
+    {
+        return $this->appendPermission(['departments.create' => '1']);
+    }
+
+    public function editDepartments()
+    {
+        return $this->appendPermission(['departments.edit' => '1']);
+    }
+
+    public function deleteDepartments()
+    {
+        return $this->appendPermission(['departments.delete' => '1']);
+    }
+
+    public function viewDepartments()
+    {
+        return $this->appendPermission(['departments.view' => '1']);
+    }
+
+    public function viewLicenses()
+    {
+        return $this->appendPermission(['licenses.view' => '1']);
+    }
+
+    public function createLicenses()
+    {
+        return $this->appendPermission(['licenses.create' => '1']);
+    }
+
+    public function cloneLicenses()
+    {
+        return $this->viewLicenses()->createLicenses();
+    }
+
+    public function editLicenses()
+    {
+        return $this->appendPermission(['licenses.edit' => '1']);
+    }
+
+    public function deleteLicenses()
+    {
+        return $this->appendPermission(['licenses.delete' => '1']);
+    }
+
+    public function checkoutLicenses()
+    {
+        return $this->appendPermission(['licenses.checkout' => '1']);
+    }
+
+    public function checkinLicenses()
+    {
+        return $this->appendPermission(['licenses.checkin' => '1']);
+    }
+
+    public function viewKeysLicenses()
+    {
+        return $this->appendPermission(['licenses.keys' => '1']);
+    }
+
+    public function viewComponents()
+    {
+        return $this->appendPermission(['components.view' => '1']);
+    }
+
+    public function createComponents()
+    {
+        return $this->appendPermission(['components.create' => '1']);
+    }
+
+    public function cloneComponents()
+    {
+        return $this->viewComponents()->createComponents();
+    }
+
+    public function editComponents()
+    {
+        return $this->appendPermission(['components.edit' => '1']);
+    }
+
+    public function deleteComponents()
+    {
+        return $this->appendPermission(['components.delete' => '1']);
+    }
+
+    public function checkinComponents()
+    {
+        return $this->appendPermission(['components.checkin' => '1']);
+    }
+
+    public function checkoutComponents()
+    {
+        return $this->appendPermission(['components.checkout' => '1']);
+    }
+
+    public function viewCompanies()
+    {
+        return $this->appendPermission(['companies.view' => '1']);
+    }
+
+    public function createCompanies()
+    {
+        return $this->appendPermission(['companies.create' => '1']);
+    }
+
+    public function deleteCompanies()
+    {
+        return $this->appendPermission(['companies.delete' => '1']);
+    }
+
+    public function editCompanies()
+    {
+        return $this->appendPermission(['companies.edit' => '1']);
+    }
+
+    public function viewUsers()
+    {
+        return $this->appendPermission(['users.view' => '1']);
+    }
+
+    public function createUsers()
+    {
+        return $this->appendPermission(['users.create' => '1']);
+    }
+
+    public function cloneUsers()
+    {
+        return $this->viewUsers()->createUsers();
+    }
+
+    public function editUsers()
+    {
+        return $this->appendPermission(['users.edit' => '1']);
+    }
+
+    public function selfApi()
+    {
+        return $this->appendPermission(['self.api' => '1']);
+    }
+
+    public function deleteUsers()
+    {
+        return $this->appendPermission(['users.delete' => '1']);
+    }
+
+    public function deleteCategories()
+    {
+        return $this->appendPermission(['categories.delete' => '1']);
+    }
+
+    public function deleteLocations()
+    {
+        return $this->appendPermission(['locations.delete' => '1']);
+    }
+
+    public function editLocations()
+    {
+        return $this->appendPermission(['locations.edit' => '1']);
+    }
+
+    public function canEditOwnLocation()
+    {
+        return $this->appendPermission(['self.edit_location' => '1']);
+    }
+
+    public function canViewReports()
+    {
+        return $this->appendPermission(['reports.view' => '1']);
+    }
+
+    public function canImport()
+    {
+        return $this->appendPermission(['import' => '1']);
+    }
+
+    public function createCustomFields()
+    {
+        return $this->appendPermission(['customfields.create' => '1']);
+    }
+
+    public function viewCustomFields()
+    {
+        return $this->appendPermission(['customfields.view' => '1']);
+    }
+
+    public function editCustomFields()
+    {
+        return $this->appendPermission(['customfields.edit' => '1']);
+    }
+
+    public function deleteCustomFields()
+    {
+        return $this->appendPermission(['customfields.delete' => '1']);
+    }
+
+    public function deleteCustomFieldsets()
+    {
+        return $this->appendPermission(['customfields.delete' => '1']);
+    }
+
+    public function deleteDepreciations()
+    {
+        return $this->appendPermission(['depreciations.delete' => '1']);
+    }
+
+    public function deleteManufacturers()
+    {
+        return $this->appendPermission(['manufacturers.delete' => '1']);
+    }
+
+    public function deletePredefinedKits()
+    {
+        return $this->appendPermission(['kits.delete' => '1']);
+    }
+
+    public function editPredefinedKits()
+    {
+        return $this->appendPermission(['kits.edit' => '1']);
+    }
+
+    public function viewPredefinedKits()
+    {
+        return $this->appendPermission(['kits.view' => '1']);
+    }
+
+    public function deleteStatusLabels()
+    {
+        return $this->appendPermission(['statuslabels.delete' => '1']);
+    }
+
+    public function createStatusLabels()
+    {
+        return $this->appendPermission(['statuslabels.create' => '1']);
+    }
+
+    public function editStatusLabels()
+    {
+        return $this->appendPermission(['statuslabels.edit' => '1']);
+    }
+
+    public function deleteSuppliers()
+    {
+        return $this->appendPermission(['suppliers.delete' => '1']);
+    }
+
+    public function auditAssets()
+    {
+        return $this->appendPermission(['assets.audit' => '1']);
+    }
+
+    public function manageAssetFiles()
+    {
+        return $this->appendPermission(['assets.files' => '1']);
+    }
+
+    public function manageModelFiles()
+    {
+        return $this->appendPermission(['models.files' => '1']);
+    }
+
+    public function manageLocationFiles()
+    {
+        return $this->appendPermission(['locations.files' => '1']);
+    }
+
+    public function manageCompanyFiles()
+    {
+        return $this->appendPermission(['companies.files' => '1']);
+    }
+
+    public function manageSupplierFiles()
+    {
+        return $this->appendPermission(['suppliers.files' => '1']);
+    }
+
+    private function appendPermission(array $permission)
+    {
+        return $this->state(function ($currentState) use ($permission) {
+            return [
+                'permissions' => json_encode(
+                    array_merge(
+                        json_decode($currentState['permissions'], true),
+                        $permission
+                    )
+                ),
+            ];
+        });
+    }
+
+    /**
+     * Named non-admin users with full control over ONE checkoutable resource
+     * type. Useful for demo installs and docs screenshots that need to show
+     * what a resource-scoped operator actually sees (nav items greyed out,
+     * settings hidden, etc). No superuser flag, no admin flag.
+     *
+     * Passwords are the factory default. Usernames are the demo identifier.
+     */
+    public function assetManager()
+    {
+        return $this->state([
+            'first_name' => 'Asset',
+            'last_name' => 'Manager',
+            'username' => 'assetmgr',
+            'email' => 'assetmgr@demo.snipeitapp.com',
+            'permissions' => json_encode([
+                'assets.view' => '1',
+                'assets.create' => '1',
+                'assets.edit' => '1',
+                'assets.delete' => '1',
+                'assets.checkout' => '1',
+                'assets.checkin' => '1',
+                'assets.audit' => '1',
+                'assets.view.requestable' => '1',
+                'assets.view.encrypted_custom_fields' => '1',
+                'assets.files' => '1',
+                'models.view' => '1',
+                'models.files' => '1',
+            ]),
+        ]);
+    }
+
+    public function licenseManager()
+    {
+        return $this->state([
+            'first_name' => 'License',
+            'last_name' => 'Manager',
+            'username' => 'licensemgr',
+            'email' => 'licensemgr@demo.snipeitapp.com',
+            'permissions' => json_encode([
+                'licenses.view' => '1',
+                'licenses.create' => '1',
+                'licenses.edit' => '1',
+                'licenses.delete' => '1',
+                'licenses.checkout' => '1',
+                'licenses.checkin' => '1',
+                'licenses.keys' => '1',
+                'licenses.files' => '1',
+            ]),
+        ]);
+    }
+
+    public function accessoryManager()
+    {
+        return $this->state([
+            'first_name' => 'Accessory',
+            'last_name' => 'Manager',
+            'username' => 'accessorymgr',
+            'email' => 'accessorymgr@demo.snipeitapp.com',
+            'permissions' => json_encode([
+                'accessories.view' => '1',
+                'accessories.create' => '1',
+                'accessories.edit' => '1',
+                'accessories.delete' => '1',
+                'accessories.checkout' => '1',
+                'accessories.checkin' => '1',
+                'accessories.files' => '1',
+            ]),
+        ]);
+    }
+
+    public function consumableManager()
+    {
+        return $this->state([
+            'first_name' => 'Consumable',
+            'last_name' => 'Manager',
+            'username' => 'consumablemgr',
+            'email' => 'consumablemgr@demo.snipeitapp.com',
+            'permissions' => json_encode([
+                'consumables.view' => '1',
+                'consumables.create' => '1',
+                'consumables.edit' => '1',
+                'consumables.delete' => '1',
+                'consumables.checkout' => '1',
+                'consumables.checkin' => '1',
+                'consumables.files' => '1',
+            ]),
+        ]);
+    }
+
+    public function componentManager()
+    {
+        return $this->state([
+            'first_name' => 'Component',
+            'last_name' => 'Manager',
+            'username' => 'componentmgr',
+            'email' => 'componentmgr@demo.snipeitapp.com',
+            'permissions' => json_encode([
+                'components.view' => '1',
+                'components.create' => '1',
+                'components.edit' => '1',
+                'components.delete' => '1',
+                'components.checkout' => '1',
+                'components.checkin' => '1',
+                'components.files' => '1',
+            ]),
+        ]);
+    }
+
+    public function userManager()
+    {
+        return $this->state([
+            'first_name' => 'User',
+            'last_name' => 'Manager',
+            'username' => 'usermgr',
+            'email' => 'usermgr@demo.snipeitapp.com',
+            'permissions' => json_encode([
+                'users.view' => '1',
+                'users.create' => '1',
+                'users.edit' => '1',
+                'users.delete' => '1',
+                'users.files' => '1',
+            ]),
+        ]);
+    }
+
+    public function deleted(): self
+    {
+        return $this->state(['deleted_at' => $this->faker->dateTime()]);
+    }
+
+    public function viewCategories()
+    {
+        return $this->appendPermission(['categories.view' => '1']);
+    }
+
+    public function createCategories()
+    {
+        return $this->appendPermission(['categories.create' => '1']);
+    }
+
+    public function editCategories()
+    {
+        return $this->appendPermission(['categories.edit' => '1']);
+    }
+
+    public function viewDepreciations()
+    {
+        return $this->appendPermission(['depreciations.view' => '1']);
+    }
+
+    public function createDepreciations()
+    {
+        return $this->appendPermission(['depreciations.create' => '1']);
+    }
+
+    public function editDepreciations()
+    {
+        return $this->appendPermission(['depreciations.edit' => '1']);
+    }
+
+    public function viewManufacturers()
+    {
+        return $this->appendPermission(['manufacturers.view' => '1']);
+    }
+
+    public function createManufacturers()
+    {
+        return $this->appendPermission(['manufacturers.create' => '1']);
+    }
+
+    public function editManufacturers()
+    {
+        return $this->appendPermission(['manufacturers.edit' => '1']);
+    }
+
+    public function viewStatusLabels()
+    {
+        return $this->appendPermission(['statuslabels.view' => '1']);
+    }
+
+    public function viewSuppliers()
+    {
+        return $this->appendPermission(['suppliers.view' => '1']);
+    }
+
+    public function createSuppliers()
+    {
+        return $this->appendPermission(['suppliers.create' => '1']);
+    }
+
+    public function editSuppliers()
+    {
+        return $this->appendPermission(['suppliers.edit' => '1']);
+    }
+}

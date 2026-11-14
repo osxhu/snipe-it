@@ -1,57 +1,66 @@
-<div class="form-group {{ $errors->has($logoVariable) ? 'has-error' : '' }}">
-    <div class="col-md-3">
-        <strong>{{ $logoLabel }}</strong>
+<!-- {{ $logoVariable }}logo image upload -->
+
+<div class="form-group">
+    <div class="col-md-3 control-label{!! $errors->has($logoVariable) ? ' error' : '' !!}">
+        <strong>
+        {{ trans($logoLabel) }}
+        </strong>
     </div>
-
-        @if (($setting->$logoVariable!='') && (Storage::disk('public')->exists(e($snipeSettings->$logoVariable))))
-        <div class="col-md-9">
-
-            <label for="{{ $logoClearVariable }}" style="font-weight: normal">
-                {{ Form::checkbox($logoClearVariable, '1', Request::old($logoClearVariable),array('class' => 'minimal')) }}
-                Remove current {{ str_replace('_', ' ', $logoVariable) }} image
-
-            </label>
-
-
-                <br>
-                @if ($logoVariable!='favicon')
-                    <a href="{{ Storage::disk('public')->url(e($snipeSettings->$logoVariable)) }}" data-toggle="lightbox">
-                        <img style="max-height: 60px; padding-top: 10px; padding-bottom: 10px; " alt="" src="{{ Storage::disk('public')->url(e($snipeSettings->$logoVariable)) }}">
-                    </a>
-                @else
-                    <img style="max-height: 50px; padding-top: 10px; padding-bottom: 10px; " alt="" src="{{ Storage::disk('public')->url(e($snipeSettings->$logoVariable)) }}">
-                @endif
-
-        </div>
-        <div class="col-md-9 col-md-offset-3">
-            @else
-                <div class="col-md-9">
-        @endif
-
-
-
-
-        <label class="btn btn-default">
+    <div class="col-md-9">
+        <label class="btn btn-theme{{ (config('app.lock_passwords')) ? ' disabled' : '' }}">
             {{ trans('button.select_file')  }}
             <input type="file" name="{{ $logoVariable }}" class="js-uploadFile" id="{{ $logoId }}"
-                data-maxsize="{{ $maxSize ?? \App\Helpers\Helper::file_upload_max_size() }}"
-                accept="{{ $allowedTypes ?? 'image/gif,image/jpeg,image/png,image/svg'}}" style="display:none; max-width: 90%">
+                   accept="{{  $allowedTypes ?? "image/gif,image/jpeg,image/webp,image/png,image/svg,image/svg+xml,image/avif" }}"
+                   data-maxsize="{{ $maxSize ?? Helper::file_upload_max_size() }}"
+                   style="display:none; max-width: 90%"{{ (config('app.lock_passwords')) ? ' disabled' : '' }}>
         </label>
+
         <span class='label label-default' id="{{ $logoId }}-info"></span>
 
-        <p class="help-block" id="{{ $logoId }}-status">
+        <x-form.error :name="$logoVariable" />
+
+
+        <p class="help-block" style="!important" id="{{ $logoId }}-status">
             {{ $helpBlock }}
         </p>
 
-        @if (config('app.lock_passwords')===true)
-            <p class="text-warning"><i class="fa fa-lock"></i> {{ trans('general.feature_disabled') }}</p>
-        @endif
-        {!! $errors->first($logoVariable, '<span class="alert-msg">:message</span>') !!}
+        <x-demo-lock>{{ trans('general.feature_disabled') }}</x-demo-lock>
+    </div>
+
+    <div class="col-md-9 col-md-offset-3">
+
+            @if (($setting->$logoVariable!='') && (Storage::disk('public')->exists(($logoPath ?? ''). $snipeSettings->$logoVariable)))
+                <div class="pull-left {{ $previewClass ?? '' }}" style="padding-right: 20px;">
+                    <a href="{{ Storage::disk('public')->url(e(($logoPath ?? '').$snipeSettings->$logoVariable)) }}"{!! ($logoVariable!='favicon') ? ' data-toggle="lightbox"' : '' !!} title="Existing logo">
+                        <img style="height: 80px; padding-bottom: 5px;" alt="Current logo" src="{{ Storage::disk('public')->url(e(($logoPath ?? ''). $snipeSettings->$logoVariable)) }}">
+                    </a>
+                </div>
+            @endif
+
+            <div id="{{ $logoId }}-previewContainer" style="display: none;" class="{{ $previewClass ?? '' }}">
+                <img id="{{ $logoId }}-imagePreview" style="height: 80px;" alt="Logo upload preview">
+            </div>
+
+
 
     </div>
+    @if (($setting->$logoVariable!='') && (Storage::disk('public')->exists(($logoPath ?? '').$snipeSettings->$logoVariable)))
+
     <div class="col-md-9 col-md-offset-3">
-        <img id="{{ $logoId }}-imagePreview" style="max-width: 500px; max-height: 50px;">
+        <label id="{{ $logoId }}-deleteCheckbox" for="{{ $logoClearVariable }}" style="font-weight: normal" class="form-control">
+            <input type="checkbox" name="{{ $logoClearVariable }}" value="1" @checked(old($logoClearVariable))>
+            {{ trans('general.remove_current_image', ['type' => $logoLabel]) }}
+        </label>
     </div>
+    @endif
+
 
 
 </div>
+
+
+
+
+
+
+

@@ -1,110 +1,137 @@
-@extends('layouts/edit-form', [
-    'createText' => trans('admin/locations/table.create') ,
-    'updateText' => trans('admin/locations/table.update'),
-    'topSubmit' => true,
-    'helpPosition' => 'right',
-    'helpText' => trans('admin/locations/table.about_locations'),
-    'formAction' => (isset($item->id)) ? route('locations.update', ['location' => $item->id]) : route('locations.store'),
-])
+@extends('layouts/default')
+
+{{-- Page title --}}
+@section('title')
+    @if ($item->id)
+        {{ trans('admin/locations/table.update') }}
+    @else
+        {{ trans('admin/locations/table.create') }}
+    @endif
+    @parent
+@stop
+
+@push('js')
+    <script nonce="{{ csrf_token() }}">
+        $(function () {
+            $('[name="company_id"]').on('select2:select select2:clear', function (e) {
+                var companyId = $(this).val() || null;
+                var $parentSelect = $('#parent_id_location_select');
+                $parentSelect.data('company-id', companyId);
+                $parentSelect.val(null).trigger('change');
+            });
+        });
+    </script>
+@endpush
 
 {{-- Page content --}}
-@section('inputFields')
-@include ('partials.forms.edit.name', ['translated_name' => trans('admin/locations/table.name')])
+@section('content')
 
-<!-- parent -->
-@include ('partials.forms.edit.location-select', ['translated_name' => trans('admin/locations/table.parent'), 'fieldname' => 'parent_id'])
+    <x-container class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1 col-sm-12 col-sm-offset-0">
 
-<!-- Manager-->
-@include ('partials.forms.edit.user-select', ['translated_name' => trans('admin/users/table.manager'), 'fieldname' => 'manager_id'])
+        <x-form :$item route="{{ ($item->id) ? route('locations.update', ['location' => $item->id]) : route('locations.store') }}">
 
-<!-- Currency -->
-<div class="form-group {{ $errors->has('currency') ? ' has-error' : '' }}">
-    <label for="currency" class="col-md-3 control-label">
-        {{ trans('admin/locations/table.currency') }}
-    </label>
-    <div class="col-md-9{{  (\App\Helpers\Helper::checkIfRequired($item, 'currency')) ? ' required' : '' }}">
-        {{ Form::text('currency', old('currency', $item->currency), array('class' => 'form-control','placeholder' => 'USD', 'maxlength'=>'3', 'style'=>'width: 60px;', 'aria-label'=>'currency')) }}
-        {!! $errors->first('currency', '<span class="alert-msg" aria-hidden="true">:message</span>') !!}
-    </div>
-</div>
+            <x-box top_submit>
+                @if ($item->id)
+                    <x-slot:header>{{ $item->name }}</x-slot:header>
+                @endif
 
-@include ('partials.forms.edit.address')
+                <x-input.company-select
+                    :label="trans('general.company')"
+                    name="company_id"
+                    :selected="old('company_id', $item->company_id)"
+                />
 
-<!-- LDAP Search OU -->
-@if ($snipeSettings->ldap_enabled == 1)
-    <div class="form-group {{ $errors->has('ldap_ou') ? ' has-error' : '' }}">
-        <label for="ldap_ou" class="col-md-3 control-label">
-            {{ trans('admin/locations/table.ldap_ou') }}
-        </label>
-        <div class="col-md-7{{  (\App\Helpers\Helper::checkIfRequired($item, 'ldap_ou')) ? ' required' : '' }}">
-            {{ Form::text('ldap_ou', old('ldap_ou', $item->ldap_ou), array('class' => 'form-control')) }}
-            {!! $errors->first('ldap_ou', '<span class="alert-msg" aria-hidden="true">:message</span>') !!}
-        </div>
-    </div>
-@endif
+                <x-form.row
+                    :label="trans('admin/locations/table.name')"
+                    :$item
+                    name="name"
+                />
 
-<!-- Image -->
-@if (($item->image) && ($item->image!=''))
-    <div class="form-group {{ $errors->has('image_delete') ? 'has-error' : '' }}">
-        <label class="col-md-3 control-label" for="image_delete">{{ trans('general.image_delete') }}</label>
-        <div class="col-md-9">
-            <label for="image_delete">
-                {{ Form::checkbox('image_delete', '1', old('image_delete'), array('class' => 'minimal', 'aria-label'=>'required')) }}
-            </label>
-            <br>
-            <img src="{{ url('/') }}/uploads/locations/{{ $item->image }}" alt="Image for {{ $item->name }}">
-            {!! $errors->first('image_delete', '<span class="alert-msg" aria-hidden="true"><br>:message</span>') !!}
-        </div>
-    </div>
-@endif
+                <x-input.location-select
+                    :label="trans('admin/locations/table.parent')"
+                    name="parent_id"
+                    :selected="old('parent_id', $item->parent_id)"
+                    :companyId="$item->company_id"
+                    id="parent_id_location_select"
+                />
 
-@include ('partials.forms.edit.image-upload')
+                <x-input.user-select
+                    :label="trans('admin/users/table.manager')"
+                    name="manager_id"
+                    :selected="old('manager_id', $item->manager_id)"
+                />
+
+                <x-form.row
+                    :label="trans('admin/suppliers/table.phone')"
+                    :$item
+                    name="phone"
+                    type="tel"
+                    input_icon="phone"
+                    input_group_addon="left"
+                />
+
+                <x-form.row
+                    :label="trans('admin/suppliers/table.fax')"
+                    :$item
+                    name="fax"
+                    type="tel"
+                    input_icon="fax"
+                    input_group_addon="left"
+                    :maxlength="34"
+                />
+
+                <x-form.row
+                    :label="trans('admin/locations/table.currency')"
+                    name="currency"
+                    input_div_class="col-md-3"
+                    help_class="col-md-7 col-md-offset-3"
+                    :help_text="trans('general.currency_manually_entered_help')"
+                >
+                    <x-slot:input>
+                        <x-input.currency-select
+                            name="currency"
+                            :selected="old('currency', $item->currency ?? null)"
+                        />
+                    </x-slot:input>
+                </x-form.row>
+
+                <x-form.address :item="$item" />
+
+                @if ($snipeSettings->ldap_enabled == 1)
+                    <x-form.row
+                        :label="trans('admin/locations/table.ldap_ou')"
+                        :$item
+                        name="ldap_ou"
+                    />
+                @endif
+
+                <x-input.image-upload :item="$item" :imagePath="app('locations_upload_path')" :clonedModel="$cloned_model ?? null" />
+
+                <x-form.row
+                    :label="trans('general.notes')"
+                    :$item
+                    name="notes"
+                    type="textarea"
+                    :rows="5"
+                    :placeholder="trans('general.placeholders.notes')"
+                />
+
+                <fieldset name="color-preferences">
+                    <x-form.legend help_text="{{ trans('general.tag_color_help') }}">
+                        {{ trans('general.tag_color') }}
+                    </x-form.legend>
+                    <x-form.row
+                        :label="trans('general.tag_color')"
+                        :$item
+                        name="tag_color"
+                        type="colorpicker"
+                    />
+                </fieldset>
+
+            </x-box>
+
+        </x-form>
+
+    </x-container>
+
 @stop
-
-@if (!$item->id)
-@section('moar_scripts')
-<script nonce="{{ csrf_token() }}">
-
-    var $eventSelect = $(".parent");
-    $eventSelect.on("change", function () { parent_details($eventSelect.val()); });
-    $(function() {
-        var parent_loc = $(".parent option:selected").val();
-        if(parent_loc!=''){
-            parent_details(parent_loc);
-        }
-    });
-
-    function parent_details(id) {
-
-        if (id) {
-//start ajax request
-$.ajax({
-    type: 'GET',
-    url: "{{url('/') }}/api/locations/"+id+"/check",
-//force to handle it as text
-dataType: "text",
-success: function(data) {
-    var json = $.parseJSON(data);
-    $("#city").val(json.city);
-    $("#address").val(json.address);
-    $("#address2").val(json.address2);
-    $("#state").val(json.state);
-    $("#zip").val(json.zip);
-    $(".country").select2("val",json.country);
-}
-});
-} else {
-    $("#city").val('');
-    $("#address").val('');
-    $("#address2").val('');
-    $("#state").val('');
-    $("#zip").val('');
-    $(".country").select2("val",'');
-}
-
-
-
-};
-</script>
-@stop
-@endif

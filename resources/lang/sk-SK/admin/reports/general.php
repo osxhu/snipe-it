@@ -1,0 +1,33 @@
+<?php
+
+return [
+    'info' => 'Vyberte možnosti pre váš report majetku.',
+    'deleted_user' => 'Zmazaní používatelia',
+    'send_reminder' => 'Poslať pripomienku',
+    'cannot_send_reminder' => 'Používateľ bol vymazaný alebo nemá e-mailovú adresu, takže nemôže dostávať pripomienku',
+    'reminder_sent' => 'Pripomienka zaslaná',
+    'reminder_sent_count' => '{0}Neboli odoslané žiadne pripomienky|{1}Odoslaná jedna pripomienka|[2,*]Počet odoslaných pripomienok: :count',
+    'acceptance_deleted' => 'Požiadavka na akceptáciu odstránená',
+    'acceptance_request' => 'Požiadavka na akceptáciu',
+    'custom_export' => [
+        'asset_company' => 'Spoločnosť majetku',
+        'asset_serial' => 'Sériové číslo majetku',
+        'assigned_asset_tag' => 'Označenie odovzdaného majetku',
+        'user_address' => 'Adresa používateľa',
+        'user_company' => 'Spoločnosť používateľa',
+        'user_city' => 'Mesto používateľa',
+        'user_state' => 'Štát používateľa',
+        'user_country' => 'Krajina používateľa',
+        'user_zip' => 'PSČ používateľa',
+        'target_notes' => 'Poznámky',
+    ],
+    'open_saved_template' => 'Otvoriť uloženú šablónu',
+    'save_template' => 'Uložiť šablónu',
+    'select_a_template' => 'Vybrať šablónu',
+    'template_name' => 'Názov šablóny',
+    'update_template' => 'Upraviť šablónu',
+    'share_template' => 'Zdieľať túto šablónu',
+    'template_shared' => 'Šablóna zdieľaná s vami',
+    'template_shared_with_others' => 'Šablóna zdieľaná s ostatnými',
+    'template_not_shared' => 'Šablóna nie je zdieľaná s ostatnými',
+];

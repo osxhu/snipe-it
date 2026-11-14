@@ -11,7 +11,7 @@
 $settings->labels_width = $settings->labels_width - $settings->labels_display_sgutter;
 $settings->labels_height = $settings->labels_height - $settings->labels_display_bgutter;
 // Leave space on bottom for 1D barcode if necessary
-$qr_size = ($settings->alt_barcode_enabled=='1') && ($settings->alt_barcode!='') ? $settings->labels_height - .3 : $settings->labels_height - .3;
+$qr_size = ($settings->alt_barcode_enabled=='1') && ($settings->label2_1d_type!='') ? $settings->labels_height - .3 : $settings->labels_height - 0.1;
 ?>
 
 <style>
@@ -52,17 +52,23 @@ $qr_size = ($settings->alt_barcode_enabled=='1') && ($settings->alt_barcode!='')
     }
     img.barcode {
         display:block;
-
-        padding-top: .11in;
+        margin-top:{{$settings->qr_code=='1' ? '-15px' : '-7px;'}};
         width: 100%;
+    }
+    div.label-logo {
+        float: right;
+        display: inline-block;
+    }
+    img.label-logo {
+        height: 0.5in;
     }
     .qr_text {
         width: {{ $settings->labels_width }}in;
         height: {{ $settings->labels_height }}in;
         padding-top: {{$settings->labels_display_bgutter}}in;
         font-family: arial, helvetica, sans-serif;
-        font-size: {{$settings->labels_fontsize}};
-        padding-right: .01in;
+        font-size: {{$settings->labels_fontsize}}pt;
+        padding-right: .0001in;
         overflow: hidden !important;
         display: inline;
         word-wrap: break-word;
@@ -96,7 +102,7 @@ $qr_size = ($settings->alt_barcode_enabled=='1') && ($settings->alt_barcode!='')
         }
     }
     @if ($snipeSettings->custom_css)
-        {{ $snipeSettings->show_custom_css() }}
+        {!! $snipeSettings->show_custom_css() !!}
     @endif
 </style>
 
@@ -104,13 +110,18 @@ $qr_size = ($settings->alt_barcode_enabled=='1') && ($settings->alt_barcode!='')
     <?php $count++; ?>
     <div class="label">
 
-        @if ($settings->qr_code=='1')
+        @if ($settings->qr_code=='1' && isset($barcode_urls[$asset->id]['qr']))
             <div class="qr_img">
-                <img src="./{{ $asset->id }}/qr_code" class="qr_img">
+                <img src="{{ $barcode_urls[$asset->id]['qr'] }}" class="qr_img" alt="">
             </div>
         @endif
 
         <div class="qr_text">
+            @if ($settings->label_logo)
+                <div class="label-logo">
+                    <img class="label-logo" src="{{ Storage::disk('public')->url('').e($snipeSettings->label_logo) }}" alt="">
+                </div>
+            @endif
             @if ($settings->qr_text!='')
                 <div class="pull-left">
                     <strong>{{ $settings->qr_text }}</strong>
@@ -145,9 +156,9 @@ $qr_size = ($settings->alt_barcode_enabled=='1') && ($settings->alt_barcode!='')
 
         </div>
 
-        @if ((($settings->alt_barcode_enabled=='1') && $settings->alt_barcode!=''))
+        @if ((($settings->alt_barcode_enabled=='1') && $settings->label2_1d_type!='') && isset($barcode_urls[$asset->id]['barcode']))
             <div class="barcode_container">
-                <img src="./{{ $asset->id }}/barcode" class="barcode">
+                <img src="{{ $barcode_urls[$asset->id]['barcode'] }}" class="barcode" alt="">
             </div>
         @endif
 
@@ -155,9 +166,9 @@ $qr_size = ($settings->alt_barcode_enabled=='1') && ($settings->alt_barcode!='')
 
     </div>
 
-    @if ($count % $settings->labels_per_page == 0)
-        <div class="page-break"></div>
-        <div class="next-padding">&nbsp;</div>
+    @if ($settings->labels_per_page > 0 && ($count % $settings->labels_per_page == 0) && $count != count($assets))
+    <div class="page-break"></div>
+    <div class="next-padding">&nbsp;</div>
     @endif
 
 @endforeach

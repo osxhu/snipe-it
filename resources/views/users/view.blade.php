@@ -2,759 +2,601 @@
 
 {{-- Page title --}}
 @section('title')
-{{ trans('admin/users/general.view_user', ['name' => $user->present()->fullName()]) }}
+{{ trans('admin/users/general.view_user', ['name' => $user->display_name]) }}
 @parent
 @stop
+
+@section('header_right')
+    <x-button.info-panel-toggle hide-on-xs/>
+@endsection
 
 {{-- Page content --}}
 @section('content')
 
-<div class="row">
-  <div class="col-md-12">
-    <div class="nav-tabs-custom">
-      <ul class="nav nav-tabs hidden-print">
+    <x-container columns="2">
 
-        <li class="active">
-          <a href="#details" data-toggle="tab">
-            <span class="hidden-lg hidden-md">
-            <i class="fa fa-info-circle"></i>
-            </span>
-            <span class="hidden-xs hidden-sm">{{ trans('admin/users/general.info') }}</span>
-          </a>
-        </li>
-
-        <li>
-          <a href="#asset" data-toggle="tab">
-            <span class="hidden-lg hidden-md">
-            <i class="fa fa-barcode" aria-hidden="true"></i>
-            </span>
-            <span class="hidden-xs hidden-sm">{{ trans('general.assets') }}</span>
-          </a>
-        </li>
-
-        <li>
-          <a href="#licenses" data-toggle="tab">
-            <span class="hidden-lg hidden-md">
-            <i class="fa fa-floppy-o"></i>
-            </span>
-            <span class="hidden-xs hidden-sm">{{ trans('general.licenses') }}</span>
-          </a>
-        </li>
-
-        <li>
-          <a href="#accessories" data-toggle="tab">
-            <span class="hidden-lg hidden-md">
-            <i class="fa fa-keyboard-o"></i>
-            </span> <span class="hidden-xs hidden-sm">{{ trans('general.accessories') }}</span>
-          </a>
-        </li>
-
-        <li>
-          <a href="#consumables" data-toggle="tab">
-            <span class="hidden-lg hidden-md">
-            <i class="fa fa-tint"></i></span>
-            <span class="hidden-xs hidden-sm">{{ trans('general.consumables') }}</span>
-          </a>
-        </li>
-
-        <li>
-          <a href="#files" data-toggle="tab">
-            <span class="hidden-lg hidden-md">
-            <i class="fa fa-paperclip"></i></span>
-            <span class="hidden-xs hidden-sm">{{ trans('general.file_uploads') }}</span>
-          </a>
-        </li>
-
-        <li>
-          <a href="#history" data-toggle="tab">
-            <span class="hidden-lg hidden-md">
-            <i class="fa fa-clock-o"></i></span>
-            <span class="hidden-xs hidden-sm">{{ trans('general.history') }}</span>
-          </a>
-        </li>
-
-        @if ($user->managedLocations()->count() >= 0 )
-        <li>
-          <a href="#managed" data-toggle="tab">
-            <span class="hidden-lg hidden-md">
-            <i class="fa fa-clock-o"></i></span>
-            <span class="hidden-xs hidden-sm">{{ trans('admin/users/table.managed_locations') }}</span>
-          </a>
-        </li>
+        @if ($user->deleted_at!='')
+            <div class="col-md-12">
+                <x-callout type="warning" icon="warning" live="assertive">
+                    {{ trans('admin/users/message.user_deleted_warning') }}
+                </x-callout>
+            </div>
         @endif
 
-        @can('update', $user)
-          <li class="dropdown pull-right">
-            <a class="dropdown-toggle" data-toggle="dropdown" href="#">
-              <i class="fa fa-gear"></i> {{ trans('button.actions') }}
-              <span class="caret"></span>
-            </a>
-            <ul class="dropdown-menu">
-              <li><a href="{{ route('users.edit', $user->id) }}">{{ trans('admin/users/general.edit') }}</a></li>
-              <li><a href="{{ route('clone/user', $user->id) }}">{{ trans('admin/users/general.clone') }}</a></li>
-              @if ((Auth::user()->id !== $user->id) && (!config('app.lock_passwords')) && ($user->deleted_at==''))
-                <li><a href="{{ route('users.destroy', $user->id) }}">{{ trans('button.delete') }}</a></li>
-              @endif
-            </ul>
-          </li>
-        @endcan
+        <x-page-column class="col-md-9 main-panel">
 
-        @can('update', \App\Models\User::class)
-          <li class="pull-right"><a href="#" data-toggle="modal" data-target="#uploadFileModal">
-              <i class="fa fa-paperclip" aria-hidden="true"></i> {{ trans('button.upload') }}</a>
-          </li>
-        @endcan
-      </ul>
-
-      <div class="tab-content">
-        <div class="tab-pane active" id="details">
-          <div class="row">
-            @if ($user->deleted_at!='')
-              <div class="col-md-12">
-                <div class="callout callout-warning">
-                  <i class="icon fa fa-warning"></i>
-                  {{ trans('admin/users/message.user_deleted_warning') }}
-                  @can('update', $user)
-                      <a href="{{ route('restore/user', $user->id) }}">{{ trans('admin/users/general.restore_user') }}</a>
-                  @endcan
-                </div>
-              </div>
-            @endif
-            <div class="col-md-2 text-center">
-              @if ($user->avatar)
-                <img src="/uploads/avatars/{{ $user->avatar }}" class="avatar img-thumbnail hidden-print" alt="{{ $user->present()->fullName() }}">
-              @else
-                <img src="{{ $user->present()->gravatar() }}" class="avatar img-circle hidden-print" alt="{{ $user->present()->fullName() }}">
-              @endif
-            </div>
-
-            <div class="col-md-8">
-              <div class="table table-responsive">
-                <table class="table table-striped">
-                  @if (!is_null($user->company))
-                    <tr>
-                        <td class="text-nowrap">{{ trans('general.company') }}</td>
-                        <td>{{ $user->company->name }}</td>
-                    </tr>
-                  @endif
-
-                  <tr>
-                    <td class="text-nowrap">{{ trans('admin/users/table.name') }}</td>
-                    <td>{{ $user->present()->fullName() }}</td>
-                  </tr>
-
-                  <tr>
-                    <td class="text-nowrap">{{ trans('admin/users/table.username') }}</td>
-                    <td>{{ $user->username }}</td>
-                  </tr>
-                    @if (($user->address) || ($user->city) || ($user->state) || ($user->country))
-                      <tr>
-                        <td class="text-nowrap">{{ trans('general.address') }}</td>
-                        <td>
-                          @if ($user->address)
-                            {{ $user->address }} <br>
-                          @endif
-                          @if ($user->city)
-                            {{ $user->city }}
-                          @endif
-                          @if ($user->state)
-                            {{ $user->state }}
-                          @endif
-                          @if ($user->country)
-                            {{ $user->country }}
-                          @endif
-                        </td>
-                      </tr>
-
-                    @endif
-                    <tr>
-                      <td class="text-nowrap">{{ trans('general.groups') }}</td>
-                      <td>
-                        @if ($user->groups->count() > 0)
-                            @foreach ($user->groups as $group)
-
-                              @can('superadmin')
-                                  <a href="{{ route('groups.show', $group->id) }}" class="label label-default">{{ $group->name }}</a>
-                            @else
-                              {{ $group->name }}
-                            @endcan
-
-                            @endforeach
-                        @else
-                          --
-                        @endif
-
-                      </td>
-                    </tr>
-
-
-                  @if ($user->jobtitle)
-                  <tr>
-                    <td class="text-nowrap">{{ trans('admin/users/table.job') }}</td>
-                    <td>{{ $user->jobtitle }}</td>
-                  </tr>
-                  @endif
-
-                  @if ($user->employee_num)
-                  <tr>
-                    <td class="text-nowrap">{{ trans('admin/users/table.employee_num') }}</td>
-                    <td>{{ $user->employee_num }}</td>
-                  </tr>
-                  @endif
-
-                  @if ($user->manager)
-                  <tr>
-                    <td class="text-nowrap">{{ trans('admin/users/table.manager') }}</td>
-                    <td>
-                      <a href="{{ route('users.show', $user->manager->id) }}">{{ $user->manager->getFullNameAttribute() }}</a>
-
-                      </td>
-                  </tr>
-                  @endif
-
-                  @if ($user->email)
-                  <tr>
-                    <td class="text-nowrap">{{ trans('admin/users/table.email') }}</td>
-                    <td><a href="mailto:{{ $user->email }}">{{ $user->email }}</a></td>
-                  </tr>
-                  @endif
-
-                  @if ($user->website)
-                    <tr>
-                      <td class="text-nowrap">{{ trans('general.website') }}</td>
-                      <td><a href="{{ $user->website }}" target="_blank">{{ $user->website }}</a></td>
-                    </tr>
-                  @endif
-
-                  @if ($user->phone)
-                  <tr>
-                    <td class="text-nowrap">{{ trans('admin/users/table.phone') }}</td>
-                    <td><a href="tel:{{ $user->phone }}">{{ $user->phone }}</a></td>
-                  </tr>
-                  @endif
-
-                  @if ($user->userloc)
-                  <tr>
-                    <td class="text-nowrap">{{ trans('admin/users/table.location') }}</td>
-                    <td>{{ link_to_route('locations.show', $user->userloc->name, [$user->userloc->id]) }}</td>
-
-
-                  </tr>
-                  @endif
-                    @if ($user->last_login)
-                      <tr>
-                        <td class="text-nowrap">{{ trans('general.last_login') }}</td>
-                        <td>{{ \App\Helpers\Helper::getFormattedDateObject($user->last_login, 'datetime', false) }}</td>
-                      </tr>
-                    @endif
-
-                    @if (!is_null($user->department))
-                      <tr>
-                        <td class="text-nowrap">{{ trans('general.department') }}</td>
-                        <td><a href="{{ route('departments.show', $user->department) }}">{{ $user->department->name }}</a></td>
-                      </tr>
-                    @endif
-                  @if ($user->created_at)
-                  <tr>
-                    <td>{{ trans('general.created_at') }}</td>
-                    <td>{{ $user->created_at->format('F j, Y h:iA') }}</td>
-                  </tr>
-                  @endif
-                    <tr>
-                      <td class="text-nowrap">{{ trans('general.login_enabled') }}</td>
-                      <td>
-                        {!! ($user->activated=='1') ? '<i class="fa fa-check text-success" aria-hidden="true"></i> '.trans('general.yes') : '<i class="fa fa-times text-danger" aria-hidden="true"></i> '.trans('general.no')  !!}
-                    </tr>
-                    <tr>
-                      <td class="text-nowrap">LDAP</td>
-                      <td>
-                        {!! ($user->ldap_import=='1') ? '<i class="fa fa-check text-success" aria-hidden="true"></i> '.trans('general.yes') : '<i class="fa fa-times text-danger" aria-hidden="true"></i> '.trans('general.no')  !!}
-
-                        </td>
-                    </tr>
-
-
-                    @if ($user->activated=='1')
-                      <tr>
-                        <td class="text-nowrap">{{ trans('admin/users/general.two_factor_active') }}</td>
-                        <td>
-                          {!! ($user->two_factor_active()) ? '<i class="fa fa-check text-success" aria-hidden="true"></i> '.trans('general.yes') : '<i class="fa fa-times text-danger" aria-hidden="true"></i> '.trans('general.no')  !!}
-                        </td>
-                      </tr>
-                      <tr>
-                        <td class="text-nowrap">{{ trans('admin/users/general.two_factor_enrolled') }}</td>
-                        <td class="two_factor_resetrow">
-                          <div class="row">
-                          <div class="col-md-2" id="two_factor_reset_toggle">
-                            {!! ($user->two_factor_active_and_enrolled()) ? '<i class="fa fa-check text-success" aria-hidden="true"></i> '.trans('general.yes') : '<i class="fa fa-times text-danger" aria-hidden="true"></i> '.trans('general.no')  !!}
-                          </div>
-
-                          @if ((Auth::user()->isSuperUser()) && ($snipeSettings->two_factor_enabled!='0') && ($snipeSettings->two_factor_enabled!=''))
-                            <div class="col-md-10">
-                            <a class="btn btn-default btn-sm pull-left" id="two_factor_reset" style="margin-right: 10px;"> {{ trans('admin/settings/general.two_factor_reset') }}</a>
-                            <span id="two_factor_reseticon">
-                            </span>
-                            <span id="two_factor_resetresult">
-                            </span>
-                            <span id="two_factor_resetstatus">
-                            </span>
-
-                                <br><br><p class="help-block">{{ trans('admin/settings/general.two_factor_reset_help') }}</p>
-                            </div>
-                          </div>
-                       @endif
-
-                        </td>
-                      </tr>
-
-                     @endif
-
-                    @if ($user->notes)
-                      <tr>
-                        <td class="text-nowrap">{{ trans('admin/users/table.notes') }}</td>
-                        <td>{{ $user->notes }}</td>
-                      </tr>
-                    @endif
-
-
-                </table>
-              </div>
-            </div> <!--/col-md-8-->
-
-            <!-- Start button column -->
-            <div class="col-md-2">
-              @can('update', $user)
-                <div class="col-md-12">
-                  <a href="{{ route('users.edit', $user->id) }}" style="width: 100%;" class="btn btn-sm btn-primary hidden-print">{{ trans('admin/users/general.edit') }}</a>
-                </div>
-              @endcan
-
-              @can('create', $user)
-                <div class="col-md-12" style="padding-top: 5px;">
-                  <a href="{{ route('clone/user', $user->id) }}" style="width: 100%;" class="btn btn-sm btn-primary hidden-print">{{ trans('admin/users/general.clone') }}</a>
-                </div>
-               @endcan
-
-                @can('view', $user)
-                <div class="col-md-12" style="padding-top: 5px;">
-                  <a href="{{ route('users.print', $user->id) }}" style="width: 100%;" class="btn btn-sm btn-primary hidden-print" target="_blank" rel="noopener">{{ trans('admin/users/general.print_assigned') }}</a>
-                </div>
-                @endcan
-                @can('delete', $user)
-                  @if ($user->deleted_at=='')
-                    <div class="col-md-12" style="padding-top: 5px;">
-                      <form action="{{route('users.destroy',$user->id)}}" method="POST">
-                        {{csrf_field()}}
-                        {{ method_field("DELETE")}}
-                        <button style="width: 100%;" class="btn btn-sm btn-warning hidden-print">{{ trans('button.delete')}}</button>
-                      </form>
-                    </div>
-                    <div class="col-md-12" style="padding-top: 5px;">
-                      <form action="{{ route('users/bulkedit') }}" method="POST">
-                        <!-- CSRF Token -->
-                        <input type="hidden" name="_token" value="{{ csrf_token() }}" />
-                        <input type="hidden" name="bulk_actions" value="delete" />
-
-                        <input type="hidden" name="ids[{{ $user->id }}]" value="{{ $user->id }}" />
-                        <button style="width: 100%;" class="btn btn-sm btn-danger hidden-print">{{ trans('button.checkin_and_delete') }}</button>
-                      </form>
-                    </div>
-                  @else
-                    <div class="col-md-12" style="padding-top: 5px;">
-                      <a href="{{ route('restore/user', $user->id) }}" style="width: 100%;" class="btn btn-sm btn-warning hidden-print">{{ trans('button.restore') }}</a>
-                    </div>
-                  @endif
-                @endcan
-            </div>
-            <!-- End button column -->
-          </div> <!--/.row-->
-        </div><!-- /.tab-pane -->
-
-        <div class="tab-pane" id="asset">
-          <!-- checked out assets table -->
-          <div class="table-responsive table-striped">
-            <table
-                    data-click-to-select="true"
-                    data-columns="{{ \App\Presenters\AssetPresenter::dataTableLayout() }}"
-                    data-cookie-id-table="userAssetsListingTable"
-                    data-pagination="true"
-                    data-id-table="userAssetsListingTable"
-                    data-search="true"
-                    data-side-pagination="server"
-                    data-show-columns="true"
-                    data-show-export="true"
-                    data-show-footer="true"
-                    data-show-refresh="true"
-                    data-sort-order="asc"
-                    data-sort-name="name"
-                    data-toolbar="#toolbar"
-                    id="userAssetsListingTable"
-                    class="table table-striped snipe-table"
-                    data-url="{{ route('api.assets.index',['assigned_to' => e($user->id), 'assigned_type' => 'App\Models\User']) }}"
-                    data-export-options='{
-                "fileName": "export-{{ str_slug($user->present()->fullName()) }}-assets-{{ date('Y-m-d') }}",
-                "ignoreColumn": ["actions","image","change","checkbox","checkincheckout","icon"]
-                }'>
-            </table>
-          </div>
-        </div><!-- /asset -->
-
-        <div class="tab-pane" id="licenses">
-          <div class="table-responsive">
-            <table
-                    data-cookie-id-table="userLicenseTable"
-                    data-id-table="userLicenseTable"
-                    id="userLicenseTable"
-                    data-search="true"
-                    data-pagination="true"
-                    data-side-pagination="client"
-                    data-show-columns="true"
-                    data-show-export="true"
-                    data-show-footer="true"
-                    data-show-refresh="true"
-                    data-sort-order="asc"
-                    data-sort-name="name"
-                    class="table table-striped snipe-table table-hover"
-                    data-export-options='{
-                    "fileName": "export-license-{{ str_slug($user->username) }}-{{ date('Y-m-d') }}",
-                    "ignoreColumn": ["actions","image","change","checkbox","checkincheckout","delete","download","icon"]
-                    }'>
-
-              <thead>
-                <tr>
-                  <th class="col-md-5">{{ trans('general.name') }}</th>
-                  <th>{{ trans('admin/hardware/form.serial') }}</th>
-                  <th data-footer-formatter="sumFormatter" data-fieldname="purchase_cost">{{ trans('general.purchase_cost') }}</th>
-                  <th>{{ trans('admin/licenses/form.purchase_order') }}</th>
-                  <th>{{ trans('general.order_number') }}</th>
-                  <th class="col-md-1 hidden-print">{{ trans('general.action') }}</th>
-                </tr>
-              </thead>
-              <tbody>
-                @foreach ($user->licenses as $license)
-                <tr>
-                  <td class="col-md-4">
-                    {!! $license->present()->nameUrl() !!}
-                  </td>
-                  <td class="col-md-4">
-                    @can('viewKeys', $license)
-                    {!! $license->present()->serialUrl() !!}
-                    @else
-                      ------------
+            <x-tabs>
+                <x-slot:tabnav>
+                    <x-tabs.details-tab/>
+                    <x-tabs.asset-tab count="{{ $user->assets()->AssetsForShow()->count() }}"/>
+                    <x-tabs.license-tab count="{{ $user->licenses()->count() }}"/>
+                    <x-tabs.accessory-tab count="{{ $user->accessories()->count() }}"/>
+                    <x-tabs.consumable-tab count="{{ $user->consumables()->count() }}"/>
+                    <x-tabs.maintenance-tab count="{{ $user->assignedMaintenances()->count() }}"/>
+                    <x-tabs.files-tab :item="$user" count="{{ $user->uploads()->count() }}"/>
+                    <x-tabs.eula-tab count="{{ $user->eulas()->count() }}"/>
+                    @can('view', \App\Models\Location::class)
+                        <x-tabs.location-tab count="{{ $user->managedLocations()->count() }}"/>
                     @endcan
-                  </td>
-                  <td class="col-md-2">
-                    {{ $license->purchase_cost }}
-                  </td>
-                  <td>
-                    {{ $license->purchase_order }}
-                  </td>
-                  <td>
-                    {{ $license->order_number }}
-                  </td>
-                  <td class="hidden-print col-md-2">
-                    @can('update', $license)
-                      <a href="{{ route('licenses.checkin', array('licenseSeatId'=> $license->pivot->id, 'backto'=>'user')) }}" class="btn btn-primary btn-sm hidden-print">{{ trans('general.checkin') }}</a>
-                     @endcan
-                  </td>
-                </tr>
-                @endforeach
-              </tbody>
-          </table>
-          </div>
-        </div><!-- /licenses-tab -->
+                    <x-tabs.user-tab count="{{ $user->managesUsers()->count() }}" name="managed-users" icon_type="manager" :label="trans('admin/users/table.managed_users')"/>
+                    <x-tabs.history-tab count="{{ $user->history->count() }}" :model="$user"/>
+                    <x-tabs.upload-tab :item="$user"/>
+                </x-slot:tabnav>
 
-        <div class="tab-pane" id="accessories">
-          <div class="table-responsive">
-            <table
-                    data-cookie-id-table="userAccessoryTable"
-                    data-id-table="userAccessoryTable"
-                    id="userAccessoryTable"
-                    data-search="true"
-                    data-pagination="true"
-                    data-side-pagination="client"
-                    data-show-columns="true"
-                    data-show-export="true"
-                    data-show-footer="true"
-                    data-show-refresh="true"
-                    data-sort-order="asc"
-                    data-sort-name="name"
-                    class="table table-striped snipe-table table-hover"
-                    data-export-options='{
-                    "fileName": "export-accessory-{{ str_slug($user->username) }}-{{ date('Y-m-d') }}",
-                    "ignoreColumn": ["actions","image","change","checkbox","checkincheckout","delete","download","icon"]
-                    }'>
-              <thead>
-                <tr>
-                  <th class="col-md-5">{{ trans('general.name') }}</th>
-                  <th class="col-md-6" data-footer-formatter="sumFormatter" data-fieldname="purchase_cost">{{ trans('general.purchase_cost') }}</th>
-                  <th class="col-md-1 hidden-print">{{ trans('general.action') }}</th>
-                </tr>
-              </thead>
-              <tbody>
-                  @foreach ($user->accessories as $accessory)
-                  <tr>
-                    <td>{!!$accessory->present()->nameUrl()!!}</td>
-                    <td>
-                      {!! $accessory->purchase_cost !!}
-                    </td>
-                    <td class="hidden-print">
-                      @can('checkin', $accessory)
-                        <a href="{{ route('checkin/accessory', array('accessoryID'=> $accessory->pivot->id, 'backto'=>'user')) }}" class="btn btn-primary btn-sm hidden-print">{{ trans('general.checkin') }}</a>
-                      @endcan
-                    </td>
-                  </tr>
-                  @endforeach
-              </tbody>
-            </table>
-          </div>
-        </div><!-- /accessories-tab -->
 
-        <div class="tab-pane" id="consumables">
-          <div class="table-responsive">
-            <table
-                    data-cookie-id-table="userConsumableTable"
-                    data-id-table="userConsumableTable"
-                    id="userConsumableTable"
-                    data-search="true"
-                    data-pagination="true"
-                    data-side-pagination="client"
-                    data-show-columns="true"
-                    data-show-export="true"
-                    data-show-footer="true"
-                    data-show-refresh="true"
-                    data-sort-order="asc"
-                    data-sort-name="name"
-                    class="table table-striped snipe-table table-hover"
-                    data-export-options='{
-                    "fileName": "export-consumable-{{ str_slug($user->username) }}-{{ date('Y-m-d') }}",
-                    "ignoreColumn": ["actions","image","change","checkbox","checkincheckout","delete","download","icon"]
-                    }'>
-              <thead>
-                <tr>
-                  <th class="col-md-6">{{ trans('general.name') }}</th>
-                  <th class="col-md-2" data-footer-formatter="sumFormatter" data-fieldname="purchase_cost">{{ trans('general.purchase_cost') }}</th>
-                  <th class="col-md-4">{{ trans('general.date') }}</th>
-                </tr>
-              </thead>
-              <tbody>
-                @foreach ($user->consumables as $consumable)
-                <tr>
-                  <td>{!! $consumable->present()->nameUrl() !!}</td>
-                  <td>
-                    {!! $consumable->purchase_cost !!}
-                  </td>
-                  <td>{{ $consumable->created_at }}</td>
-                </tr>
-                @endforeach
-              </tbody>
-          </table>
-          </div>
-        </div><!-- /consumables-tab -->
+                <x-slot:tabpanes>
 
-        <div class="tab-pane" id="files">
-          <div class="row">
+                    <!-- start details tab content -->
+                    <x-tabs.pane name="details">
 
-            <div class="col-md-12 col-sm-12">
-              <div class="table-responsive">
-                <table id="files-table" class="display table table-striped">
-                  <thead>
-                    <tr>
-                      <th class="col-md-5">{{ trans('general.notes') }}</th>
-                      <th class="col-md-5"><span class="line"></span>{{ trans('general.file_name') }}</th>
-                      <th class="col-md-2">{{ trans('general.download') }}</th>
-                      <th class="col-md-2">{{ trans('general.delete') }}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    @foreach ($user->uploads as $file)
-                    <tr>
-                      <td>
-                        @if ($file->note)
-                        {{ $file->note }}
-                        @endif
-                      </td>
-                      <td>
-                      {{ $file->filename }}
-                      </td>
-                      <td>
-                        @if ($file->filename)
-                        <a href="{{ route('show/userfile', [$user->id, $file->id]) }}" class="btn btn-default">{{ trans('general.download') }}</a>
-                        @endif
-                      </td>
-                      <td>
-                        @can('update', $user)
-                        <a class="btn delete-asset btn-danger btn-sm hidden-print" href="{{ route('userfile.destroy', [$user->id, $file->id]) }}" data-content="Are you sure you wish to delete this file?" data-title="Delete {{ $file->filename }}?"><i class="fa fa-trash icon-white" aria-hidden="true"></i><span class="sr-only">Delete</span></a>
+                        <!-- this just adds a little top space -->
+                        <div class="clearfix visible-lg-block" style="padding: 6px;"></div>
+
+                        <!-- well column -->
+                        <x-page-column class="col-md-4">
+                            <x-well>
+                                <x-icon type="calendar" class="fa-fw"/>
+                                <strong>{{ trans('general.last_login') }}</strong>
+                                @if ($user->last_login != '')
+                                    {{ Helper::getFormattedDateObject($user->last_login, 'datetime', false) }}
+                                    <span class="text-muted">{{ Carbon::parse($user->last_login)->diffForHumans(['parts' => 2]) }}</span>
+                                @else
+                                    {{ trans('general.na') }}
+                                @endif
+                            </x-well>
+                        </x-page-column>
+                        <!--  ./ well column -->
+
+                        <!-- well column -->
+                        <x-page-column class="col-md-4">
+                            <x-well>
+                                <x-icon type="start_date" class="fa-fw"/>
+                                <strong>{{ trans('general.start_date') }}</strong>
+                                @if ($user->start_date != '')
+                                    {{ Helper::getFormattedDateObject($user->start_date, 'date', false) }}
+                                    <span class="text-muted">{{ Carbon::parse($user->start_date)->diffForHumans(['parts' => 2]) }}</span>
+                                @else
+                                    {{ trans('general.na') }}
+                                @endif
+                            </x-well>
+                        </x-page-column>
+                        <!-- ./ well column -->
+
+                        <!-- well column -->
+                        <x-page-column class="col-md-4">
+                            <x-well>
+                                <x-icon type="end_date" class="fa-fw {{ (($user->end_date!='' && $user->end_date < Carbon::now()) ? ' text-danger' : '') }}"/>
+                                <strong>{{ trans('general.end_date') }}</strong>
+                                @if ($user->end_date != '')
+                                    {{ Helper::getFormattedDateObject($user->end_date, 'date', false) }}
+                                    <span class="text-muted">{{ Carbon::parse($user->end_date)->diffForHumans(['parts' => 2]) }}</span>
+                                @else
+                                    {{ trans('general.na') }}
+                                @endif
+                            </x-well>
+
+                        </x-page-column>
+                        <!-- ./ well column -->
+
+                        <!-- set clearfix for responsive design -->
+                        <div class="clearfix"></div>
+
+                        <!-- definition list column -->
+                        <x-page-column class="col-md-8 col-sm-12">
+
+                            <!-- definition list content -->
+                            <x-page-data>
+
+                                <x-data-row :label="trans('general.name')" copy_what="name">
+                                    {{ $user->full_name }}
+                                </x-data-row>
+
+                                <x-data-row :label="trans('admin/users/table.display_name')" copy_what="display_name">
+                                    {{ $user->getRawOriginal('display_name') }}
+                                </x-data-row>
+
+                                <x-data-row :label="trans('general.username')" copy_what="username">
+                                    @if ($user->isSuperUser())
+                                        <span class="label label-danger label-normal" data-tooltip="true" title="{{ trans('general.superuser_tooltip') }}"><x-icon type="superadmin" style="padding-right: 5px;"/>{{ $user->username }}</span>
+                                    @elseif ($user->hasAccess('admin'))
+                                        <span class="label label-warning label-normal" data-tooltip="true" title="{{ trans('general.admin_tooltip') }}"><x-icon type="superadmin" style="padding-right: 5px;"/>{{ $user->username }}</span>
+                                    @else
+                                        {{ $user->username }}
+                                    @endif
+                                </x-data-row>
+
+                                <x-data-row :label="trans('admin/users/table.employee_num')" copy_what="employee_num">
+                                    {{ $user->employee_num }}
+                                </x-data-row>
+
+                                <x-data-row :label="trans('admin/users/table.job')" copy_what="jobtitle">
+                                    {{ $user->jobtitle }}
+                                </x-data-row>
+
+                                <x-data-row :label="trans('general.groups')" copy_what="groups">
+                                    @if ($user->groups->count() > 0)
+                                        @foreach ($user->groups as $group)
+                                            {!! $group->present()->formattedNameLink() !!}
+                                        @endforeach
+                                    @endif
+
+                                    @if ($user->hasIndividualPermissions())
+                                        <span class="text-warning"><x-icon type="warning"/> {{ trans('admin/users/general.individual_override') }}</span>
+                                    @endif
+                                </x-data-row>
+
+                                <x-data-row :label="trans('general.permissions')">
+                                    @if ($user->isSuperUser())
+                                        <span class="label label-danger label-normal" data-tooltip="true" title="{{ trans('general.superuser_tooltip') }}">
+                                            <x-icon type="superadmin" style="padding-right: 5px;"/>{{ trans('general.superuser') }}
+                                        </span>
+                                    @elseif ($user->hasAccess('admin'))
+                                        <span class="label label-warning label-normal" data-tooltip="true" title="{{ trans('general.admin_tooltip') }}">
+                                            <x-icon type="superadmin" style="padding-right: 5px;"/>{{ trans('general.admin_user') }}
+                                        </span>
+                                    @elseif (!empty($effectivePermissionsBySection))
+                                        @foreach ($effectivePermissionsBySection as $section => $permissions)
+                                            @foreach ($permissions as $permission)
+                                                @if (($permission['status'] ?? 'allowed') === 'denied')
+                                                    <span class="label label-danger denied-permission" data-tooltip="true" title="{{ $permission['source_label'] }}"><x-icon type="x" class="fa-fw"/> {{ $permission['permission'] }}</span>
+                                                @else
+                                                    <span class="label label-success" data-tooltip="true" title="{{ $permission['source_label'] }}"><x-icon type="checkmark" class="fa-fw"/> {{ $permission['permission'] }}</span>
+                                                @endif
+                                            @endforeach
+
+                                        @endforeach
+                                    @endif
+                                </x-data-row>
+
+                            @if (($user->email!='') && ($user->activated=='1')  && ($user->getAssignedItemsWithPendingAcceptance()->count() > 0))
+
+                                    <x-data-row :label="trans_choice('admin/users/general.unaccepted_items', $user->getAssignedItemsWithPendingAcceptance()->count())">
+                                        <form action="{{ route('users.acceptance_reminder', $user) }}" method="POST" class="form-inline" style="display: inline;">
+                                            {{ csrf_field() }}
+                                            <button class="btn btn-warning btn-sm" type="submit">
+                                                {{ trans('admin/users/general.send_acceptance_reminder') }}
+                                            </button>
+                                        </form>
+                                    </x-data-row>
+                                @endif
+
+                            </x-page-data>
+
+                            <!-- ./ definition list column -->
+
+                        </x-page-column>
+                        <!-- ./ definition list content -->
+
+                        <!-- begin side stats well column-->
+                        <x-page-column class="col-md-4 col-sm-12">
+
+
+                            @if ($user->getUserTotalCost()->total_user_cost > 0)
+                                <x-well class="well-sm">
+
+                                    <div class="well-display">
+
+                                        <x-data-row icon_type="asset" label="{{ trans('general.assets') }}" align="right">
+                                            {{ Helper::formatCurrencyOutput($user->getUserTotalCost()->asset_cost) }}
+                                        </x-data-row>
+
+                                        <x-data-row icon_type="licenses" label="{{ trans('general.licenses') }}" align="right">
+                                            {{ Helper::formatCurrencyOutput($user->getUserTotalCost()->license_cost)}}
+                                        </x-data-row>
+
+                                        <x-data-row icon_type="accessories" label="{{ trans('general.accessories') }}" align="right">
+                                            {{ Helper::formatCurrencyOutput($user->getUserTotalCost()->accessory_cost)}}
+                                        </x-data-row>
+
+                                        <x-data-row icon_type="consumables" label="{{ trans('general.consumables') }}" align="right">
+                                            {{ Helper::formatCurrencyOutput($user->getUserTotalCost()->consumable_cost) }}
+                                        </x-data-row>
+
+                                        {{-- Sum across complete + active maintenances tied
+                                             to this user — used to surface "which users
+                                             cost the most maintenance over time" as a glance.
+                                             The current-active count lives on the tab badge
+                                             above so we don't duplicate it here. --}}
+                                        <x-data-row icon_type="maintenances" :label="trans('general.maintenance_cost')" align="right">
+                                            {{ Helper::formatCurrencyOutput($user->getUserTotalCost()->maintenance_cost) }}
+                                        </x-data-row>
+
+                                        <x-data-row icon_type="cost" label=" {{ trans('admin/users/table.total_assets_cost') }}" align="right">
+                                            {{ Helper::formatCurrencyOutput($user->getUserTotalCost()->total_user_cost) }}
+                                        </x-data-row>
+
+                                    </div>
+
+                                </x-well>
+                            @endif
+
+
+                            <x-well class="well-sm" style="padding-left: 15px;">
+
+                                @if($user->activated == '1')
+                                    <x-icon type="checkmark" class="fa-fw text-success"/>
+                                    {{ trans('general.login_enabled') }}
+
+                                    <br>
+                                    @if ($user->two_factor_active())
+                                        <x-icon type="checkmark" class="fa-fw text-success"/>
+                                    @else
+                                        <x-icon type="x" class="fa-fw text-danger"/>
+                                    @endif
+                                    {{ trans('admin/users/general.two_factor_active') }}
+
+                                    <br>
+                                    @if ($user->two_factor_active_and_enrolled())
+                                        <x-icon type="checkmark" class="fa-fw text-success"/>
+                                    @else
+                                        <x-icon type="x" class="fa-fw text-danger"/>
+                                    @endif
+                                    {{ trans('admin/users/general.two_factor_enrolled') }}
+
+                                @else
+                                    <x-icon type="x" class="fa-fw text-danger"/>
+                                    {{ trans('general.login_enabled') }}
+                                @endif
+
+                                <br>
+
+                                @if($user->vip == '1')
+                                    <x-icon type="vip" class="fa-fw text-warning"/>
+                                    {{ trans('admin/users/general.vip_label') }}
+                                    <br>
+                                @endif
+
+                                <x-icon type="api-key" class="fa-fw"/>
+                                {{ $user->tokens()->count() }} API Tokens
+                                <br>
+
+                                @if($user->remote == '1')
+                                    <x-icon type="remote" class="fa-fw"/>
+                                    {{ trans('admin/users/general.remote') }}
+                                    <br>
+                                @endif
+
+                                @if($user->ldap_import == '1')
+                                    <x-icon type="ldap" class="fa-fw"/>
+                                    {{ trans('admin/settings/general.ldap_enabled') }}
+                                    <br>
+                                @endif
+
+                                @if ($user->autoassign_licenses == '1')
+                                    <x-icon type="checkmark" class="fa-fw text-success"/>
+                                @else
+                                    <x-icon type="x" class="fa-fw text-danger"/>
+                                @endif
+                                {{ trans('general.autoassign_licenses') }}
+                                <br>
+
+                            </x-well>
+
+
+                                <!-- Impersonation button -->
+                                @if (Auth::check() && Auth::user()->mayImpersonate($user))
+                                    <button type="button" class="btn btn-danger hidden-print btn-social btn-block" data-toggle="modal" data-target="#confirmImpersonateModal" data-tooltip="true" data-title="{{ trans('admin/users/general.impersonate_user', ['name' => $user->display_name]) }}">
+                                        <x-icon type="impersonate" class="fa-fw" style="font-size: 17px;"/>
+                                        {{ trans('general.impersonate') }}
+                                        <span class="sr-only">{{ trans('admin/users/general.impersonate_user', ['name' => $user->display_name]) }}</span>
+                                    </button>
+                                @endif
+
+
+
+                                @if (auth()->user()->isSuperUser() && $user->twoFactorResettable())
+                                    <!-- 2FA reset -->
+                                    <button type="button" class="btn btn-theme hidden-print btn-social btn-block" data-toggle="modal" data-target="#confirmTwoFactorResetModal" style="margin-right: 10px; margin-top: 10px;">
+                                        <x-icon type="mobile" class="fa-fw"/>
+                                        {{ trans('admin/settings/general.two_factor_reset') }}
+                                    </button>
+                                    <br>
+                                    <p class="help-block" style="line-height: 1.6;">
+                                        {{ trans('admin/settings/general.two_factor_reset_help') }}
+                                    </p>
+                                @endif
+
+
+
+                        </x-page-column>
+                        <!-- end side stats well column-->
+
+                    </x-tabs.pane>
+
+                    <x-tabs.pane name="licenses" :count="$user->licenses()->count()">
+
+                        <x-slot:table_header>{{ trans('general.licenses') }}</x-slot:table_header>
+
+                        @can('checkin', \App\Models\License::class)
+                        <x-slot:bulkactions>
+                            <x-table.bulk-actions
+                                name="userLicenseTable"
+                                :action_route="route('licenses.bulkcheckin.show')"
+                                model_name="license_seats"
+                                :actions="[
+                                    'checkin' => ['label' => trans('general.checkin')],
+                                ]"
+                            />
+                        </x-slot:bulkactions>
                         @endcan
-                      </td>
-                    </tr>
-                    @endforeach
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div> <!--/ROW-->
-        </div><!--/FILES-->
 
-        <div class="tab-pane" id="history">
-          <div class="table-responsive">
+                        @can('view', \App\Models\License::class)
+                        <x-table
+                            name="userLicenseTable"
+                            show_column_search="false"
+                            show_footer="true"
+                            buttons="licenseButtons"
+                            api_url="{{ route('api.users.licenselist', ['user' => $user->id]) }}"
+                            :presenter="\App\Presenters\UserPresenter::licensesDataTableLayout()"
+                            export_filename="export-license-{{ str_slug($user->username) }}-{{ date('Y-m-d') }}"
+                        />
+                        @endcan
 
-            <table
-                    data-click-to-select="true"
-                    data-cookie-id-table="usersHistoryTable"
-                    data-pagination="true"
-                    data-id-table="usersHistoryTable"
-                    data-search="true"
-                    data-side-pagination="server"
-                    data-show-columns="true"
-                    data-show-export="true"
-                    data-show-refresh="true"
-                    data-sort-order="desc"
-                    data-toolbar="#toolbar"
-                    id="usersHistoryTable"
-                    class="table table-striped snipe-table"
-                    data-url="{{ route('api.activity.index', ['target_id' => $user->id, 'target_type' => 'user']) }}"
-                    data-export-options='{
-                "fileName": "export-{{ str_slug($user->present()->fullName ) }}-history-{{ date('Y-m-d') }}",
-                "ignoreColumn": ["actions","image","change","checkbox","checkincheckout","icon"]
-                }'>
-              <thead>
-              <tr>
-                <th data-field="icon" style="width: 40px;" class="hidden-xs" data-formatter="iconFormatter">Icon</th>
-                <th class="col-sm-3" data-field="created_at" data-formatter="dateDisplayFormatter" data-sortable="true">{{ trans('general.date') }}</th>
-                <th class="col-sm-2" data-field="admin" data-formatter="usersLinkObjFormatter">{{ trans('general.admin') }}</th>
-                <th class="col-sm-2" data-field="action_type">{{ trans('general.action') }}</th>
-                <th class="col-sm-3" data-field="item" data-formatter="polymorphicItemFormatter">{{ trans('general.item') }}</th>
-                <th class="col-sm-2" data-field="target" data-formatter="polymorphicItemFormatter">{{ trans('general.target') }}</th>
-              </tr>
-              </thead>
-            </table>
+                    </x-tabs.pane>
 
-          </div>
-        </div><!-- /.tab-pane -->
+                    <x-tabs.pane name="assets" :count="$user->assets()->AssetsForShow()->count()">
+                        <x-table.assets name="userAssets" :route="route('api.assets.index',['assigned_to' => e($user->id), 'assigned_type' => 'App\Models\User'])"/>
+                    </x-tabs.pane>
 
-        <div class="tab-pane" id="managed">
-          <div class="table-responsive">
-            <table class="display table table-striped">
-              <thead>
-                <tr>
-                  <th class="col-md-8">{{ trans('general.name') }}</th>
-                  <th class="col-md-4">{{ trans('general.date') }}</th>
-                </tr>
-              </thead>
-              <tbody>
-                @foreach ($user->managedLocations as $location)
-                <tr>
-                  <td>{!! $location->present()->nameUrl() !!}</td>
-                  <td>{{ $location->created_at }}</td>
-                </tr>
-                @endforeach
-              </tbody>
-          </table>
-          </div>
-        </div><!-- /consumables-tab -->
-      </div><!-- /.tab-content -->
-    </div><!-- nav-tabs-custom -->
-  </div>
-</div>
+                    <x-tabs.pane name="accessories" :count="$user->accessories()->count()">
+                        <x-slot:table_header>
+                            {{ trans('general.accessories_assigned') }}
+                        </x-slot:table_header>
 
-  @can('update', \App\Models\User::class)
-    @include ('modals.upload-file', ['item_type' => 'user', 'item_id' => $user->id])
-  @endcan
+                        @can('view', \App\Models\Accessory::class)
+                        <x-table
+                            name="userAccessoryTable"
+                            show_column_search="false"
+                            show_footer="true"
+                            buttons="accessoryButtons"
+                            api_url="{{ route('api.users.accessorieslist', ['user' => $user->id]) }}"
+                            :presenter="\App\Presenters\UserPresenter::accessoriesDataTableLayout()"
+                            export_filename="export-accessory-{{ str_slug($user->username) }}-{{ date('Y-m-d') }}"
+                        />
+                        @endcan
+
+                    </x-tabs.pane>
+
+                    <x-tabs.pane name="consumables" :count="$user->consumables()->count()">
+                        @can('view', \App\Models\Consumable::class)
+                        <x-table
+                            name="userConsumableTable"
+                            show_column_search="false"
+                            show_footer="true"
+                            buttons="consumableButtons"
+                            api_url="{{ route('api.users.consumableslist', ['user' => $user->id]) }}"
+                            :presenter="\App\Presenters\UserPresenter::consumablesDataTableLayout()"
+                            export_filename="export-consumable-{{ str_slug($user->username) }}-{{ date('Y-m-d') }}"
+                        />
+                        @endcan
+
+                    </x-tabs.pane>
+
+                    {{-- Maintenances tab: every maintenance whose underlying
+                         asset was checked out to this user. Shows open and
+                         closed; the tab badge only counts the open ones
+                         (see assignedMaintenances()->active() above). --}}
+                    <x-tabs.pane name="maintenances" :count="$user->assignedMaintenances()->count()">
+                        <x-table.maintenances name="userMaintenances"
+                            :route="route('api.maintenances.index', ['checked_out_to_id' => $user->id, 'checked_out_to_type' => \App\Models\User::class])"
+                            export_filename="export-maintenances-{{ str_slug($user->username) }}-{{ date('Y-m-d') }}"
+                        />
+                    </x-tabs.pane>
+
+                    <x-tabs.pane name="managed-users" :count="$user->managesUsers()->count()">
+                        @include('partials.users-bulk-actions')
+
+                        <table
+                            data-columns="{{ \App\Presenters\UserPresenter::dataTableLayout() }}"
+                            data-cookie-id-table="managedUsersTable"
+                            data-id-table="managedUsersTable"
+                            data-toolbar="#usersBulkEditToolbar"
+                            data-bulk-button-id="#bulkUserEditButton"
+                            data-bulk-form-id="#usersBulkForm"
+                            data-side-pagination="server"
+                            id="managedUsersTable"
+                            data-buttons="userButtons"
+                            class="table table-striped snipe-table"
+                            data-url="{{ route('api.users.index', ['manager_id' => $user->id]) }}"
+                            data-export-options='{
+              "fileName": "export-users-{{ date('Y-m-d') }}",
+              "ignoreColumn": ["actions","image","change","checkbox","checkincheckout","icon"]
+              }'>
+                        </table>
+                    </x-tabs.pane>
 
 
+                    <x-tabs.pane name="files" :count="$user->uploads()->count()">
+                        <x-table.files object_type="users" :object="$user"/>
+                    </x-tabs.pane>
 
-  @stop
+                    <x-tabs.pane name="eulas" :count="$user->eulas()->count()">
+                        <x-slot:table_header>
+                            {{ trans('general.eula') }}
+                        </x-slot:table_header>
+
+                        <table
+                            data-toolbar="#userEULAToolbar"
+                            data-cookie-id-table="userEULATable"
+                            data-id-table="userEULATable"
+                            id="userEULATable"
+                            data-side-pagination="client"
+                            data-show-footer="true"
+                            data-show-refresh="false"
+                            data-sort-order="asc"
+                            data-sort-name="name"
+                            class="table table-striped snipe-table table-hover"
+                            data-url="{{ route('api.user.eulas', $user) }}"
+                            data-export-options='{
+                    "fileName": "export-eula-{{ str_slug($user->username) }}-{{ date('Y-m-d') }}",
+                    "ignoreColumn": ["actions","image","change","checkbox","checkincheckout","delete","purchasecost", "icon"]
+                    }'>
+                            <thead>
+                                <tr>
+                                    <th scope="col" data-visible="true" data-field="icon" style="width: 40px;" class="hidden-xs" data-formatter="iconFormatter">{{ trans('admin/hardware/table.icon') }}</th>
+                                    <th scope="col" data-visible="true" data-field="item.name">{{ trans('general.item') }}</th>
+                                    <th scope="col" data-visible="true" data-field="created_at" data-sortable="true" data-formatter="dateDisplayFormatter">{{ trans('general.accepted_date') }}</th>
+                                    <th scope="col" data-field="note">{{ trans('general.notes') }}</th>
+                                    <th scope="col" data-field="url" data-formatter="fileDownloadButtonsFormatter">{{ trans('general.download') }}</th>
+                                </tr>
+                            </thead>
+                        </table>
+                    </x-tabs.pane>
+
+
+                    <!-- start locations tab pane -->
+                    {{-- Gate both the tab link (above) and this pane on
+                         locations.view: the api_url below hits
+                         /api/v1/locations which 403s callers without the
+                         permission. Showing the tab for a viewer who
+                         cannot populate it is an empty-state footgun. --}}
+                    @can('view', \App\Models\Location::class)
+                    <x-tabs.pane name="locations">
+
+                        <x-slot:table_header>
+                            {{ trans('general.locations') }}
+                        </x-slot:table_header>
+
+                        <x-table
+                            name="userLocations_{{ $user->id }}"
+                            api_url="{{ route('api.locations.index', ['manager_id' => $user->id]) }}"
+                            :presenter="\App\Presenters\LocationPresenter::dataTableLayout()"
+                            export_filename="export-history-{{ str_slug($user->name) }}-{{ date('Y-m-d') }}"
+                        />
+
+                    </x-tabs.pane>
+                    @endcan
+
+
+                    <!-- start history tab pane -->
+                    <x-tabs.pane name="history">
+                        <x-table.history name="userHistory" :model="$user" :route="route('api.users.history', $user)" :hide_fields="['order_number']"/>
+                    </x-tabs.pane>
+                    <!-- end history tab pane -->
+                </x-slot:tabpanes>
+            </x-tabs>
+        </x-page-column>
+
+        <x-page-column class="col-md-3">
+            <x-box class="side-box expanded">
+                <x-info-panel :infoPanelObj="$user" img_path="{{ app('users_upload_url') }}">
+                    <x-slot:buttons>
+                        <x-button.edit :item="$user" :route="route('users.edit', $user->id)"/>
+                        <x-button.clone :item="$user" :route="route('users.clone.show', $user)"/>
+                        <x-button.restore :item="$user" :route="route('users.restore.store',  $user)"/>
+
+
+                    @if($user->allAssignedCount() != '0')
+                        <a href="{{ route('users.print', $user->id) }}" class="btn btn-sm btn-theme hidden-print" target="_blank" rel="noopener" data-tooltip="true" data-title="{{ trans('admin/users/general.print_assigned') }}">
+                            <x-icon type="print" class="fa-fw"/>
+                        </a>
+                        @endif
+
+                        @can('checkout', \App\Models\Asset::class)
+                            @if (($user->assets()->whereNull('deleted_at')->count() + $user->accessories()->count() + $user->licenses()->count()) > 0)
+                                <a href="{{ route('users.transfer.show', $user) }}" class="btn btn-sm btn-theme hidden-print" data-tooltip="true" data-title="{{ trans('admin/users/general.transfer.button_tooltip') }}">
+                                    <x-icon type="transfer" class="fa-fw"/>
+                                </a>
+                            @endif
+                        @endcan
+
+
+                        @if(!empty($user->email) && ($user->allAssignedCount() != '0'))
+                            <form class="form-inline" style="display: inline" action="{{ route('users.email',['userId'=> $user->id]) }}" method="POST">
+                                {{ csrf_field() }}
+                                <button class="btn btn-sm btn-theme hidden-print" rel="noopener" data-tooltip="true" data-title="{{ trans('admin/users/general.email_assigned') }}">
+                                    <x-icon type="email" class="fa-fw"/>
+                                </button>
+                            </form>
+                        @endif
+
+                        @if (!empty($user->email) && ($user->activated=='1'))
+                            <form action="{{ route('users.password',['userId'=> $user->id]) }}" method="POST" class="form-inline" style="display: inline">
+                                {{ csrf_field() }}
+                                <button class="btn btn-sm btn-primary hidden-print" data-tooltip="true" data-title="{{ trans('button.send_password_link') }}">
+                                    <x-icon type="password" class="fa-fw"/>
+                                </button>
+                            </form>
+                        @else
+                            <button class="btn btn-sm btn-primary hidden-print" rel="noopener" disabled title="{{ trans('admin/users/message.user_has_no_email') }}">
+                                <x-icon class="fa-solid fa-key"/>
+                            </button>
+                        @endif
+
+                        <x-button.delete :item="$user"/>
+
+                        @can('delete', $user)
+                            <form action="{{ route('users/bulkedit') }}" method="POST" class="form-inline pull-right" style="display: inline; padding-right: 5px;">
+                                <!-- CSRF Token -->
+                                <input type="hidden" name="_token" value="{{ csrf_token() }}"/>
+                                <input type="hidden" name="bulk_actions" value="delete"/>
+                                <input type="hidden" name="ids[{{ $user->id }}]" value="{{ $user->id }}"/>
+                                <button class="btn btn-sm btn-danger hidden-print pull-right" style="margin-right: 3px;" data-tooltip="true" data-title="{{ trans('tooltips.checkin_all.user') }}">
+                                    <x-icon type="checkin-and-delete" class="fa-fw"/>
+                                </button>
+                            </form>
+                        @endcan
+                    </x-slot:buttons>
+                </x-info-panel>
+            </x-box>
+
+        </x-page-column>
+    </x-container>
+
+    @if (Auth::check() && Auth::user()->mayImpersonate($user))
+        @include('users.impersonate-confirm-modal')
+    @endif
+
+    @if (auth()->user()->isSuperUser() && $user->twoFactorResettable())
+        <x-modals.confirm-action
+            modal-name="confirmTwoFactorResetModal"
+            :route="route('users.two_factor_reset', $user->id)"
+            :title="trans('admin/settings/general.two_factor_reset')"
+        >
+            {{ trans('admin/settings/general.two_factor_reset_confirm', ['name' => $user->display_name]) }}
+        </x-modals.confirm-action>
+    @endif
+
+@endsection
+
 
 @section('moar_scripts')
-  @include ('partials.bootstrap-table', ['simple_view' => true])
+    @can('files', $user)
+        <x-modals.upload-file item-type="users" :item-id="$user->id" />
+    @endcan
+
+    @include ('partials.bootstrap-table', ['simple_view' => true])
 <script nonce="{{ csrf_token() }}">
 $(function () {
 
-  $("#two_factor_reset").click(function(){
-    $("#two_factor_resetrow").removeClass('success');
-    $("#two_factor_resetrow").removeClass('danger');
-    $("#two_factor_resetstatus").html('');
-    $("#two_factor_reseticon").html('<i class="fa fa-spinner spin"></i>');
-    $.ajax({
-      url: '{{ route('api.users.two_factor_reset', ['id'=> $user->id]) }}',
-      type: 'POST',
-      data: {},
-      headers: {
-        "X-Requested-With": 'XMLHttpRequest',
-        "X-CSRF-TOKEN": $('meta[name="csrf-token"]').attr('content')
-      },
-      dataType: 'json',
-
-      success: function (data) {
-        $("#two_factor_reset_toggle").html('').html('<i class="fa fa-times text-danger" aria-hidden="true"></i> {{ trans('general.no') }}');
-        $("#two_factor_reseticon").html('');
-        $("#two_factor_resetstatus").html('<i class="fa fa-check text-success"></i>' + data.message);
-
-      },
-
-      error: function (data) {
-        $("#two_factor_reseticon").html('');
-        $("#two_factor_reseticon").html('<i class="fa fa-exclamation-triangle text-danger"></i>');
-        $('#two_factor_resetstatus').text(data.message);
-      }
-
-
-    });
-  });
-
-
-    //binds to onchange event of your input field
-    var uploadedFileSize = 0;
-    $('#fileupload').bind('change', function() {
-      uploadedFileSize = this.files[0].size;
-      $('#progress-container').css('visibility', 'visible');
+    $("#optional_info").on("click",function(){
+        $('#optional_details').fadeToggle(100);
+        $('#optional_info_icon').toggleClass('fa-caret-right fa-caret-down');
+        var optional_info_open = $('#optional_info_icon').hasClass('fa-caret-down');
+        document.cookie = "optional_info_open="+optional_info_open+'; path=/';
     });
 
-    $('#fileupload').fileupload({
-        //maxChunkSize: 100000,
-        dataType: 'json',
-        formData:{
-        _token:'{{ csrf_token() }}',
-        notes: $('#notes').val(),
-        },
-
-        progress: function (e, data) {
-            //var overallProgress = $('#fileupload').fileupload('progress');
-            //var activeUploads = $('#fileupload').fileupload('active');
-            var progress = parseInt((data.loaded / uploadedFileSize) * 100, 10);
-            $('.progress-bar').addClass('progress-bar-warning').css('width',progress + '%');
-            $('#progress-bar-text').html(progress + '%');
-            //console.dir(overallProgress);
-        },
-
-        done: function (e, data) {
-            console.dir(data);
-            // We use this instead of the fail option, since our API
-            // returns a 200 OK status which always shows as "success"
-
-            if (data && data.jqXHR && data.jqXHR.responseJSON && data.jqXHR.responseJSON.status === "error") {
-                var errorMessage = data.jqXHR.responseJSON.messages["file.0"];
-                $('#progress-bar-text').html(errorMessage[0]);
-                $('.progress-bar').removeClass('progress-bar-warning').addClass('progress-bar-danger').css('width','100%');
-                $('.progress-checkmark').fadeIn('fast').html('<i class="fa fa-times fa-3x icon-white" style="color: #d9534f"></i>');
-            } else {
-                $('.progress-bar').removeClass('progress-bar-warning').addClass('progress-bar-success').css('width','100%');
-                $('.progress-checkmark').fadeIn('fast');
-                $('#progress-container').delay(950).css('visibility', 'visible');
-                $('.progress-bar-text').html('Finished!');
-                $('.progress-checkmark').fadeIn('fast').html('<i class="fa fa-check fa-3x icon-white" style="color: green"></i>');
-                $.each(data.result, function (index, file) {
-                    $('<tr><td>' + file.note + '</td><<td>' + file.filename + '</td></tr>').prependTo("#files-table > tbody");
-                });
-            }
-            $('#progress').removeClass('active');
-
-
-        }
-    });
 });
 </script>
 
-
-@stop
+@endsection

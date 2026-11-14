@@ -1,14 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
+{{-- TODO: Translate --}}
 <head>
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
     <title>{{ config('app.name') }} - Authorization</title>
-    
+
     {{-- stylesheets --}}
-    <link rel="stylesheet" href="{{ mix('css/all.css') }}">
+    <link rel="stylesheet" href="{{ url(mix('css/dist/all.css')) }}">
     <style>
         .passport-authorize .container {
             margin-top: 30px;
@@ -51,11 +52,16 @@
                         <!-- Scope List -->
                         @if (count($scopes) > 0)
                             <div class="scopes">
-                                    <p><strong>This application will be able to:</strong></p>
+                                    <p><strong>This application is requesting the following scopes:</strong></p>
 
                                     <ul>
                                         @foreach ($scopes as $scope)
-                                            <li>{{ $scope->description }}</li>
+                                            <li>
+                                                <code>{{ $scope->id }}</code>
+                                                @if ($scope->description && $scope->description !== $scope->id)
+                                                    : {{ $scope->description }}
+                                                @endif
+                                            </li>
                                         @endforeach
                                     </ul>
                             </div>
@@ -63,7 +69,7 @@
 
                         <div class="buttons">
                             <!-- Authorize Button -->
-                            <form method="post" action="/oauth/authorize">
+                            <form method="post" action="{{ url('/oauth/authorize') }}">
                                 {{ csrf_field() }}
 
                                 <input type="hidden" name="state" value="{{ $request->state }}">
@@ -72,7 +78,7 @@
                             </form>
 
                             <!-- Cancel Button -->
-                            <form method="post" action="/oauth/authorize">
+                            <form method="post" action="{{ url('/oauth/authorize') }}">
                                 {{ csrf_field() }}
                                 {{ method_field('DELETE') }}
 

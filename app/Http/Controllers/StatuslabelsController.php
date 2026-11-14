@@ -1,10 +1,15 @@
 <?php
+
 namespace App\Http\Controllers;
 
+use App\Enums\StatusLabelType;
 use App\Helpers\Helper;
 use App\Models\Statuslabel;
-use Illuminate\Support\Facades\Auth;
+use App\Rules\CssColor;
+use Illuminate\Contracts\View\View;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 /**
  * This controller handles all actions related to Status Labels for
@@ -16,35 +21,25 @@ class StatuslabelsController extends Controller
 {
     /**
      * Show a list of all the statuslabels.
-     *
-     * @return \Illuminate\Contracts\View\View
-     * @throws \Illuminate\Auth\Access\AuthorizationException
      */
-
-    public function index()
+    public function index(): View
     {
         $this->authorize('view', Statuslabel::class);
+
         return view('statuslabels.index');
     }
 
-    public function show($id)
+    public function show(Statuslabel $statuslabel): View|RedirectResponse
     {
         $this->authorize('view', Statuslabel::class);
-        if ($statuslabel = Statuslabel::find($id)) {
-            return view('statuslabels.view')->with('statuslabel', $statuslabel);
-        }
 
-        return redirect()->route('statuslabels.index')->with('error', trans('admin/statuslabels/message.does_not_exist'));
+        return view('statuslabels.view')->with('statuslabel', $statuslabel);
     }
-
 
     /**
      * Statuslabel create.
-     *
-     * @return \Illuminate\Contracts\View\View
-     * @throws \Illuminate\Auth\Access\AuthorizationException
      */
-    public function create()
+    public function create(): View
     {
         // Show the page
         $this->authorize('create', Statuslabel::class);
@@ -54,119 +49,93 @@ class StatuslabelsController extends Controller
             ->with('statuslabel_types', Helper::statusTypeList());
     }
 
-
     /**
      * Statuslabel create form processing.
-     *
-     * @param Request $request
-     * @return \Illuminate\Http\RedirectResponse
-     * @throws \Illuminate\Auth\Access\AuthorizationException
      */
-    public function store(Request $request)
+    public function store(Request $request): RedirectResponse
     {
-
         $this->authorize('create', Statuslabel::class);
         // create a new model instance
-        $statusLabel = new Statuslabel();
+        $statusLabel = new Statuslabel;
 
-        if ($request->missing('statuslabel_types')) {
-            return redirect()->back()->withInput()->withErrors(['statuslabel_types' => trans('validation.statuslabel_type')]);
-        }
+        $request->validate([
+            'statuslabel_types' => ['required', 'string', Rule::enum(StatusLabelType::class)],
+            'color' => ['nullable', new CssColor],
+        ]);
 
         $statusType = Statuslabel::getStatuslabelTypesForDB($request->input('statuslabel_types'));
 
         // Save the Statuslabel data
-        $statusLabel->name              = $request->input('name');
-        $statusLabel->user_id           = Auth::id();
-        $statusLabel->notes             =  $request->input('notes');
-        $statusLabel->deployable        =  $statusType['deployable'];
-        $statusLabel->pending           =  $statusType['pending'];
-        $statusLabel->archived          =  $statusType['archived'];
-        $statusLabel->color             =  $request->input('color');
-        $statusLabel->show_in_nav       =  $request->input('show_in_nav', 0);
-        $statusLabel->default_label     =  $request->input('default_label', 0);
-
+        $statusLabel->name = $request->input('name');
+        $statusLabel->created_by = auth()->id();
+        $statusLabel->notes = $request->input('notes');
+        $statusLabel->deployable = $statusType['deployable'];
+        $statusLabel->pending = $statusType['pending'];
+        $statusLabel->archived = $statusType['archived'];
+        $statusLabel->color = $request->input('color');
+        $statusLabel->show_in_nav = $request->input('show_in_nav', 0);
+        $statusLabel->default_label = $request->input('default_label', 0);
 
         if ($statusLabel->save()) {
             // Redirect to the new Statuslabel  page
             return redirect()->route('statuslabels.index')->with('success', trans('admin/statuslabels/message.create.success'));
         }
+
         return redirect()->back()->withInput()->withErrors($statusLabel->getErrors());
     }
 
     /**
      * Statuslabel update.
-     *
-     * @param  int $statuslabelId
-     * @return \Illuminate\Contracts\View\View
-     * @throws \Illuminate\Auth\Access\AuthorizationException
      */
-    public function edit($statuslabelId = null)
+    public function edit(Statuslabel $statuslabel): View|RedirectResponse
     {
         $this->authorize('update', Statuslabel::class);
-        // Check if the Statuslabel exists
-        if (is_null($item = Statuslabel::find($statuslabelId))) {
-            // Redirect to the blogs management page
-            return redirect()->route('statuslabels.index')->with('error', trans('admin/statuslabels/message.does_not_exist'));
-        }
 
-        $use_statuslabel_type = $item->getStatuslabelType();
+        $statuslabel_types = Helper::statusTypeList();
 
-        $statuslabel_types = array('' => trans('admin/hardware/form.select_statustype')) + array('undeployable' => trans('admin/hardware/general.undeployable')) + array('pending' => trans('admin/hardware/general.pending')) + array('archived' => trans('admin/hardware/general.archived')) + array('deployable' => trans('admin/hardware/general.deployable'));
-
-        return view('statuslabels/edit', compact('item', 'statuslabel_types'))->with('use_statuslabel_type', $use_statuslabel_type);
+        return view('statuslabels/edit', compact('statuslabel_types'))
+            ->with('item', $statuslabel)
+            ->with('use_statuslabel_type', $statuslabel);
     }
-
 
     /**
      * Statuslabel update form processing page.
-     *
-     * @param  int $statuslabelId
-     * @return \Illuminate\Http\RedirectResponse
-     * @throws \Illuminate\Auth\Access\AuthorizationException
      */
-    public function update(Request $request, $statuslabelId = null)
+    public function update(Request $request, Statuslabel $statuslabel): RedirectResponse
     {
         $this->authorize('update', Statuslabel::class);
-        // Check if the Statuslabel exists
-        if (is_null($statuslabel = Statuslabel::find($statuslabelId))) {
-            // Redirect to the blogs management page
-            return redirect()->route('statuslabels.index')->with('error', trans('admin/statuslabels/message.does_not_exist'));
-        }
 
-        if (!$request->filled('statuslabel_types')) {
-            return redirect()->back()->withInput()->withErrors(['statuslabel_types' => trans('validation.statuslabel_type')]);
-        }
-
+        $request->validate([
+            'statuslabel_types' => ['required', 'string', Rule::enum(StatusLabelType::class)],
+            'color' => ['nullable', new CssColor],
+        ]);
 
         // Update the Statuslabel data
-        $statustype                 = Statuslabel::getStatuslabelTypesForDB($request->input('statuslabel_types'));
-        $statuslabel->name              = $request->input('name');
-        $statuslabel->notes          =  $request->input('notes');
-        $statuslabel->deployable          =  $statustype['deployable'];
-        $statuslabel->pending          =  $statustype['pending'];
-        $statuslabel->archived          =  $statustype['archived'];
-        $statuslabel->color          =  $request->input('color');
-        $statuslabel->show_in_nav          =  $request->input('show_in_nav', 0);
-        $statuslabel->default_label          =  $request->input('default_label', 0);
-
+        $statustype = Statuslabel::getStatuslabelTypesForDB($request->input('statuslabel_types'));
+        $statuslabel->name = $request->input('name');
+        $statuslabel->notes = $request->input('notes');
+        $statuslabel->deployable = $statustype['deployable'];
+        $statuslabel->pending = $statustype['pending'];
+        $statuslabel->archived = $statustype['archived'];
+        $statuslabel->color = $request->input('color');
+        $statuslabel->show_in_nav = $request->input('show_in_nav', 0);
+        $statuslabel->default_label = $request->input('default_label', 0);
 
         // Was the asset created?
         if ($statuslabel->save()) {
             // Redirect to the saved Statuslabel page
-            return redirect()->route("statuslabels.index")->with('success', trans('admin/statuslabels/message.update.success'));
+            return redirect()->route('statuslabels.index')->with('success', trans('admin/statuslabels/message.update.success'));
         }
+
         return redirect()->back()->withInput()->withErrors($statuslabel->getErrors());
     }
 
     /**
      * Delete the given Statuslabel.
      *
-     * @param  int $statuslabelId
-     * @return \Illuminate\Http\RedirectResponse
-     * @throws \Illuminate\Auth\Access\AuthorizationException
+     * @param  int  $statuslabelId
      */
-    public function destroy($statuslabelId)
+    public function destroy($statuslabelId): RedirectResponse
     {
         $this->authorize('delete', Statuslabel::class);
         // Check if the Statuslabel exists
@@ -177,10 +146,10 @@ class StatuslabelsController extends Controller
         // Check that there are no assets associated
         if ($statuslabel->assets()->count() == 0) {
             $statuslabel->delete();
+
             return redirect()->route('statuslabels.index')->with('success', trans('admin/statuslabels/message.delete.success'));
         }
 
         return redirect()->route('statuslabels.index')->with('error', trans('admin/statuslabels/message.assoc_assets'));
     }
-
 }

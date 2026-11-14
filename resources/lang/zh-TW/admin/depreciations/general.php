@@ -1,12 +1,21 @@
 <?php
 
-return array(
-    'about_asset_depreciations'  			=> '關於資產折舊',
-    'about_depreciations'  					=> '您可以設置資產折舊期限',
-    'asset_depreciations'  					=> '資產折舊',
-    'create'  					            => '新建折舊',
-    'depreciation_name'  					=> '折舊名稱',
-    'number_of_months'  					=> '月數',
-    'update'  					            => '更新折舊',
-
-);
+return [
+    'about_asset_depreciations' => '關於資產折舊',
+    'about_depreciations' => '您可以設定資產折舊，以線性、條件性適用半年慣例或始終適用半年慣例來折舊資產。',
+    'asset_depreciations' => '資產折舊',
+    'create' => '新建折舊',
+    'depreciation_name' => '折舊名稱',
+    'number_of_months' => '月數',
+    'rate_multiplier' => 'Rate Multiplier',
+    'update' => '更新折舊',
+    'fiscal_year_start_month' => 'Fiscal Year Start Month',
+    'no_depreciations_warning' => '<strong>警告:</strong>
+                      你目前沒有設定任何折舊。
+                      請至少設定一次折舊，以查看折舊報告。',
+    'depreciation_method' => '折舊報告',
+    'linear_depreciation' => '線性 (預設)',
+    'diminishing_depreciation' => 'Diminishing Value Depreciation',
+    'half_1' => '半年慣例，始終適用',
+    'half_2' => '半年慣例，條件性適用',
+];

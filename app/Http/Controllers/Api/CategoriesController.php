@@ -2,12 +2,20 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Actions\Categories\DestroyCategoryAction;
+use App\Enums\FileStorage;
+use App\Exceptions\Handler;
+use App\Exceptions\ItemStillHasChildren;
 use App\Helpers\Helper;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\FilterRequest;
+use App\Http\Requests\ImageUploadRequest;
 use App\Http\Transformers\CategoriesTransformer;
 use App\Http\Transformers\SelectlistTransformer;
 use App\Models\Category;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Storage;
 
 class CategoriesController extends Controller
@@ -16,56 +24,152 @@ class CategoriesController extends Controller
      * Display a listing of the resource.
      *
      * @author [A. Gianotto] [<snipe@snipe.net>]
+     *
      * @since [v4.0]
-     * @return \Illuminate\Http\Response
+     *
+     * @return Response
      */
-    public function index(Request $request)
+    public function index(FilterRequest $request): array
     {
         $this->authorize('view', Category::class);
-        $allowed_columns = ['id', 'name','category_type', 'category_type','use_default_eula','eula_text', 'require_acceptance','checkin_email', 'assets_count', 'accessories_count', 'consumables_count', 'components_count','licenses_count', 'image'];
+        $allowed_columns = [
+            'accessories_count',
+            'assets_count',
+            'category_type',
+            'checkin_email',
+            'components_count',
+            'consumables_count',
+            'created_at',
+            'eula_text',
+            'id',
+            'image',
+            'licenses_count',
+            'name',
+            'notes',
+            'require_acceptance',
+            'tag_color',
+            'updated_at',
+            'use_default_eula',
+        ];
 
-        $categories = Category::select(['id', 'created_at', 'updated_at', 'name','category_type','use_default_eula','eula_text', 'require_acceptance','checkin_email','image'])
-            ->withCount('assets as assets_count', 'accessories as accessories_count', 'consumables as consumables_count', 'components as components_count','licenses as licenses_count');
+        $categories = Category::select([
+            'categories.category_type',
+            'categories.checkin_email',
+            'categories.created_at',
+            'categories.created_by',
+            'categories.eula_text',
+            'categories.id',
+            'categories.image',
+            'categories.name',
+            'categories.notes',
+            'categories.require_acceptance',
+            'categories.tag_color',
+            'categories.updated_at',
+            'categories.use_default_eula',
+        ])
+            ->with('adminuser')
+            ->withCount('accessories as accessories_count', 'consumables as consumables_count', 'components as components_count', 'licenses as licenses_count', 'models as models_count');
 
-        if ($request->filled('search')) {
-            $categories = $categories->TextSearch($request->input('search'));
+        // This invokes the Searchable model trait scopeTextSearch and will handle input by search or by advanced search filter
+        if ($request->filled('filter') || $request->filled('search')) {
+            $categories->TextSearch($request->input('filter') ? $request->input('filter') : $request->input('search'));
         }
 
-        // Set the offset to the API call's offset, unless the offset is higher than the actual count of items in which
-        // case we override with the actual count, so we should return 0 items.
-        $offset = (($categories) && ($request->get('offset') > $categories->count())) ? $categories->count() : $request->get('offset', 0);
+        /*
+         * This checks to see if we should override the Admin Setting to show archived assets in list.
+         * We don't currently use it within the Snipe-IT GUI, but will be useful for API integrations where they
+         * may actually need to fetch assets that are archived.
+         *
+         * @see \App\Models\Category::showableAssets()
+         */
+        if ($request->input('archived') == 'true') {
+            $categories = $categories->withCount('assets as assets_count');
+        } else {
+            $categories = $categories->withCount('showableAssets as assets_count');
+        }
 
-        // Check to make sure the limit is not higher than the max allowed
-        ((config('app.max_results') >= $request->input('limit')) && ($request->filled('limit'))) ? $limit = $request->input('limit') : $limit = config('app.max_results');
+        if ($request->filled('name')) {
+            $categories->where('name', '=', $request->input('name'));
+        }
 
-        $order = $request->input('order') === 'asc' ? 'asc' : 'desc';
-        $sort = in_array($request->input('sort'), $allowed_columns) ? $request->input('sort') : 'assets_count';
-        $categories->orderBy($sort, $order);
+        if ($request->filled('category_type')) {
+            $categories->where('category_type', '=', $request->input('category_type'));
+        }
 
+        if ($request->filled('use_default_eula')) {
+            $categories->where('use_default_eula', '=', $request->input('use_default_eula'));
+        }
+
+        if ($request->filled('require_acceptance')) {
+            $categories->where('require_acceptance', '=', $request->input('require_acceptance'));
+        }
+
+        if ($request->filled('checkin_email')) {
+            $categories->where('checkin_email', '=', $request->input('checkin_email'));
+        }
+
+        if ($request->filled('created_by')) {
+            $categories->where('created_by', '=', $request->input('created_by'));
+        }
+
+        if ($request->filled('created_at')) {
+            $categories->where('created_at', '=', $request->input('created_at'));
+        }
+
+        if ($request->filled('updated_at')) {
+            $categories->where('updated_at', '=', $request->input('updated_at'));
+        }
+
+        // Make sure the offset and limit are actually integers and do not exceed system limits
         $total = $categories->count();
+        $offset = ($request->input('offset') > $total) ? $total : app('api_offset_value');
+        $limit = app('api_limit_value');
+        $order = $request->input('order') === 'asc' ? 'asc' : 'desc';
+        $sort_override = $request->input('sort');
+        $column_sort = in_array($sort_override, $allowed_columns) ? $sort_override : 'assets_count';
+
+        switch ($sort_override) {
+            case 'created_by':
+                $categories = $categories->OrderByCreatedBy($order);
+                break;
+                // This is annoying, since it's not a real relationship, which is what we usually use these switches for, but
+                // we call the field has_eula, not eula_text, so there won't be a matching field
+            case 'has_eula':
+                $categories = $categories->orderBy('eula_text', $order);
+                break;
+            default:
+                $categories = $categories->orderBy($column_sort, $order);
+                break;
+        }
+
         $categories = $categories->skip($offset)->take($limit)->get();
+
         return (new CategoriesTransformer)->transformCategories($categories, $total);
 
     }
-
 
     /**
      * Store a newly created resource in storage.
      *
      * @author [A. Gianotto] [<snipe@snipe.net>]
+     *
      * @since [v4.0]
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\Response
+     *
+     * @return Response
      */
-    public function store(Request $request)
+    public function store(ImageUploadRequest $request): JsonResponse
     {
         $this->authorize('create', Category::class);
         $category = new Category;
         $category->fill($request->all());
+        $category->created_by = auth()->id();
+        $category->category_type = strtolower($request->input('category_type'));
+        $category = $request->handleImages($category);
 
         if ($category->save()) {
             return response()->json(Helper::formatStandardApiResponse('success', $category, trans('admin/categories/message.create.success')));
         }
+
         return response()->json(Helper::formatStandardApiResponse('error', null, $category->getErrors()));
 
     }
@@ -74,33 +178,43 @@ class CategoriesController extends Controller
      * Display the specified resource.
      *
      * @author [A. Gianotto] [<snipe@snipe.net>]
+     *
      * @since [v4.0]
+     *
      * @param  int  $id
-     * @return \Illuminate\Http\Response
      */
-    public function show($id)
+    public function show($id): array
     {
         $this->authorize('view', Category::class);
-        $category = Category::findOrFail($id);
+        $category = Category::withCount('assets as assets_count', 'accessories as accessories_count', 'consumables as consumables_count', 'components as components_count', 'licenses as licenses_count')->findOrFail($id);
+
         return (new CategoriesTransformer)->transformCategory($category);
 
     }
-
 
     /**
      * Update the specified resource in storage.
      *
      * @author [A. Gianotto] [<snipe@snipe.net>]
+     *
      * @since [v4.0]
-     * @param  \Illuminate\Http\Request  $request
+     *
      * @param  int  $id
-     * @return \Illuminate\Http\Response
+     * @return Response
      */
-    public function update(Request $request, $id)
+    public function update(ImageUploadRequest $request, $id): JsonResponse
     {
         $this->authorize('update', Category::class);
         $category = Category::findOrFail($id);
+
+        // Don't allow the user to change the category_type once it's been created
+        if (($request->filled('category_type')) && ($category->category_type != $request->input('category_type'))) {
+            return response()->json(
+                Helper::formatStandardApiResponse('error', null, ['category_type' => trans('admin/categories/message.update.cannot_change_category_type')])
+            );
+        }
         $category->fill($request->all());
+        $category = $request->handleImages($category);
 
         if ($category->save()) {
             return response()->json(Helper::formatStandardApiResponse('success', $category, trans('admin/categories/message.update.success')));
@@ -113,37 +227,42 @@ class CategoriesController extends Controller
      * Remove the specified resource from storage.
      *
      * @author [A. Gianotto] [<snipe@snipe.net>]
+     *
      * @since [v4.0]
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
+     *
+     * @return Response
      */
-    public function destroy($id)
+    public function destroy(Category $category): JsonResponse
     {
         $this->authorize('delete', Category::class);
-        $category = Category::findOrFail($id);
-
-        if (!$category->isDeletable()) {
+        try {
+            DestroyCategoryAction::run(category: $category);
+        } catch (ItemStillHasChildren $e) {
             return response()->json(
-                Helper::formatStandardApiResponse('error', null,  trans('admin/categories/message.assoc_items', ['asset_type'=>$category->category_type]))
+                Helper::formatStandardApiResponse('error', null, trans('general.bulk_delete_associations.general_assoc_warning', ['asset_type' => $category->category_type]))
+            );
+        } catch (\Throwable $e) {
+            Handler::reportOrRethrow($e);
+
+            return response()->json(
+                Helper::formatStandardApiResponse('error', null, trans('general.something_went_wrong'))
             );
         }
-        $category->delete();
-        return response()->json(Helper::formatStandardApiResponse('success', null,  trans('admin/categories/message.delete.success')));
 
+        return response()->json(Helper::formatStandardApiResponse('success', null, trans('admin/categories/message.delete.success')));
     }
-
 
     /**
      * Gets a paginated collection for the select2 menus
      *
      * @author [A. Gianotto] [<snipe@snipe.net>]
-     * @since [v4.0.16]
-     * @see \App\Http\Transformers\SelectlistTransformer
      *
+     * @since [v4.0.16]
+     * @see SelectlistTransformer
      */
-    public function selectlist(Request $request, $category_type = 'asset')
+    public function selectlist(Request $request, $category_type = 'asset'): array
     {
-
+        $this->authorize('view.selectlists');
         $categories = Category::select([
             'id',
             'name',
@@ -151,7 +270,7 @@ class CategoriesController extends Controller
         ]);
 
         if ($request->filled('search')) {
-            $categories = $categories->where('name', 'LIKE', '%'.$request->get('search').'%');
+            $categories = $categories->where('name', 'LIKE', '%'.$request->input('search').'%');
         }
 
         $categories = $categories->where('category_type', $category_type)->orderBy('name', 'ASC')->paginate(50);
@@ -160,11 +279,9 @@ class CategoriesController extends Controller
         // This lets us have more flexibility in special cases like assets, where
         // they may not have a ->name value but we want to display something anyway
         foreach ($categories as $category) {
-            $category->use_image = ($category->image) ? Storage::disk('public')->url('categories/'.$category->image, $category->image) : null;
+            $category->use_image = ($category->image) ? Storage::disk('public')->url(FileStorage::Categories->publicPath().$category->image, $category->image) : null;
         }
 
         return (new SelectlistTransformer)->transformSelectlist($categories);
-
     }
-
 }

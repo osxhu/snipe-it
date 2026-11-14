@@ -2,6 +2,21 @@
 
 namespace App\Console\Commands;
 
+use App\Models\Accessory;
+use App\Models\Asset;
+use App\Models\AssetModel;
+use App\Models\Company;
+use App\Models\Component;
+use App\Models\Consumable;
+use App\Models\Department;
+use App\Models\Depreciation;
+use App\Models\Group;
+use App\Models\License;
+use App\Models\Location;
+use App\Models\Manufacturer;
+use App\Models\Statuslabel;
+use App\Models\Supplier;
+use App\Models\User;
 use Illuminate\Console\Command;
 
 class FixDoubleEscape extends Command
@@ -37,49 +52,43 @@ class FixDoubleEscape extends Command
      */
     public function handle()
     {
-
         $tables = [
-            '\App\Models\Asset' => ['name'],
-            '\App\Models\License' => ['name'],
-            '\App\Models\Consumable' => ['name'],
-            '\App\Models\Accessory' => ['name'],
-            '\App\Models\Component' => ['name'],
-            '\App\Models\Company' => ['name'],
-            '\App\Models\Manufacturer' => ['name'],
-            '\App\Models\Supplier' => ['name'],
-            '\App\Models\Statuslabel' => ['name'],
-            '\App\Models\Depreciation' => ['name'],
-            '\App\Models\AssetModel' => ['name'],
-            '\App\Models\Group' => ['name'],
-            '\App\Models\Department' => ['name'],
-            '\App\Models\Location' => ['name'],
-            '\App\Models\User' => ['first_name', 'last_name'],
+            Asset::class => ['name'],
+            License::class => ['name'],
+            Consumable::class => ['name'],
+            Accessory::class => ['name'],
+            Component::class => ['name'],
+            Company::class => ['name'],
+            Manufacturer::class => ['name'],
+            Supplier::class => ['name'],
+            Statuslabel::class => ['name'],
+            Depreciation::class => ['name'],
+            AssetModel::class => ['name'],
+            Group::class => ['name'],
+            Department::class => ['name'],
+            Location::class => ['name'],
+            User::class => ['first_name', 'last_name'],
         ];
 
-        $count = array();
+        $count = [];
 
+        foreach ($tables as $classname => $fields) {
+            $count[$classname] = [];
+            $count[$classname]['classname'] = 0;
 
+            foreach ($fields as $field) {
+                $count[$classname]['classname']++;
+                $count[$classname][$field] = 0;
 
-            foreach ($tables as $classname => $fields) {
-                $count[$classname] = array();
-                $count[$classname]['classname'] = 0;
-
-                foreach($fields as $field) {
-
-                    $count[$classname]['classname']++;
-                    $count[$classname][$field] = 0;
-
-                    foreach($classname::where("$field",'LIKE','%&%')->get() as $row) {
-                        $this->info('Updating '.$field.' for '.$classname);
-                        $row->{$field} = html_entity_decode($row->{$field},ENT_QUOTES);
-                        $row->save();
-                        $count[$classname][$field]++;
-
-                    }
+                foreach ($classname::where("$field", 'LIKE', '%&%')->get() as $row) {
+                    $this->info('Updating '.$field.' for '.$classname);
+                    $row->{$field} = html_entity_decode($row->{$field}, ENT_QUOTES);
+                    $row->save();
+                    $count[$classname][$field]++;
                 }
             }
+        }
 
         $this->info('Update complete');
-
     }
 }

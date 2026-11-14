@@ -7,54 +7,33 @@
 @stop
 
 
-@section('header_right')
-@can('create', \App\Models\License::class)
-    <a href="{{ route('licenses.create') }}" class="btn btn-primary pull-right">
-      {{ trans('general.create') }}
-    </a>
-    @endcan
-@stop
-
 {{-- Page content --}}
 @section('content')
+    <x-container>
+        <x-box name="licenses" sr_only_title>
 
+            <x-slot:bulkactions>
+                <x-table.bulk-licenses />
+            </x-slot:bulkactions>
 
-<div class="row">
-  <div class="col-md-12">
-    <div class="box">
-      <div class="box-body">
+            <x-table.licenses
+                fixed_right_number="2"
+                fixed_number="1"
+                show_footer="true"
+                show_advanced_search="true"
+                name="licenses"
+                :route="route('api.licenses.index', ['status' => e(request('status'))])"/>
 
-          <table
-              data-columns="{{ \App\Presenters\LicensePresenter::dataTableLayout() }}"
-              data-cookie-id-table="licensesTable"
-              data-pagination="true"
-              data-search="true"
-              data-side-pagination="server"
-              data-show-columns="true"
-              data-show-export="true"
-              data-show-footer="true"
-              data-show-refresh="true"
-              data-sort-order="asc"
-              data-sort-name="name"
-              id="licensesTable"
-              class="table table-striped snipe-table"
-              data-url="{{ route('api.licenses.index') }}"
-              data-export-options='{
-            "fileName": "export-licenses-{{ date('Y-m-d') }}",
-            "ignoreColumn": ["actions","image","change","checkbox","checkincheckout","icon"]
-            }'>
-          </table>
-
-      </div><!-- /.box-body -->
-
-      <div class="box-footer clearfix">
-      </div>
-    </div><!-- /.box -->
-  </div>
-</div>
+        </x-box>
+        <x-shiftclick/>
+    </x-container>
 @stop
 
 @section('moar_scripts')
 @include ('partials.bootstrap-table')
 
+<x-table.advanced-search
+    tableId="licensesListingTable"
+    :model="\App\Models\License::class"
+/>
 @stop

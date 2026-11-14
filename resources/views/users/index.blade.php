@@ -1,10 +1,13 @@
 @extends('layouts/default')
-
 {{-- Page title --}}
 @section('title')
 
     @if (request('status')=='deleted')
         {{ trans('general.deleted') }}
+    @elseif (request('admins')=='true')
+        {{ trans('general.show_admins') }}
+    @elseif (request('superadmins')=='true')
+        {{ trans('general.show_superadmins') }}
     @else
         {{ trans('general.current') }}
     @endif
@@ -15,86 +18,44 @@
 
 @section('header_right')
 
-    @can('create', \App\Models\User::class)
-        @if ($snipeSettings->ldap_enabled == 1)
-            <a href="{{ route('ldap/user') }}" class="btn btn-default pull-right"><span class="fa fa-sitemap"></span> LDAP Sync</a>
-        @endif
-        <a href="{{ route('users.create') }}" class="btn btn-primary pull-right" style="margin-right: 5px;">  {{ trans('general.create') }}</a>
-    @endcan
-
-    @if (request('status')=='deleted')
-        <a class="btn btn-default pull-right" href="{{ route('users.index') }}" style="margin-right: 5px;">{{ trans('admin/users/table.show_current') }}</a>
-    @else
-        <a class="btn btn-default pull-right" href="{{ route('users.index', ['status' => 'deleted']) }}" style="margin-right: 5px;">{{ trans('admin/users/table.show_deleted') }}</a>
+    {{-- LDAP sync surfaces users from across the entire directory
+         regardless of company scoping, so the button is superuser-only
+         to match LDAPImportController's authorization. --}}
+    @if (auth()->user()?->isSuperUser() && $snipeSettings->ldap_enabled == 1)
+        <a href="{{ route('ldap/user') }}" class="btn btn-theme pull-right"><i class="fas fa-sitemap"></i> {{trans('general.ldap_sync')}}</a>
     @endif
-    @can('view', \App\Models\User::class)
-        <a class="btn btn-default pull-right" href="{{ route('users.export') }}" style="margin-right: 5px;">Export</a>
-    @endcan
 @stop
 
 {{-- Page content --}}
 @section('content')
+    <x-container>
+        <x-box name="users" sr_only_title>
+            <x-table.users name="users" :route="route('api.users.index',
+                [
+                    'status' => is_scalar(request('status')) ? request('status') : null,
+                    'deleted'=> (request('status')=='deleted') ? 'true' : 'false',
+                    'company_id' => is_scalar(request('company_id')) ? request('company_id') : null,
+                    'manager_id' => is_scalar(request('manager_id')) ? request('manager_id') : null,
+                    'admins' => is_scalar(request('admins')) ? request('admins') : null,
+                    'superadmins' => is_scalar(request('superadmins')) ? request('superadmins') : null,
+                    'activated' => is_scalar(request('activated')) ? request('activated') : null,
+                    'end_date_within' => is_scalar(request('end_date_within')) ? (int) request('end_date_within') : null,
+                    'with_assignments' => request()->boolean('with_assignments') ? 1 : null,
+               ])"/>
+        </x-box>
+        <x-shiftclick/>
+    </x-container>
 
-<div class="row">
-  <div class="col-md-12">
-    <div class="box box-default">
-        <div class="box-body">
-          {{ Form::open([
-               'method' => 'POST',
-               'route' => ['users/bulkedit'],
-               'class' => 'form-inline',
-                'id' => 'bulkForm']) }}
-
-            @if (request('status')!='deleted')
-              @can('delete', \App\Models\User::class)
-                <div id="toolbar">
-                    <label for="bulk_actions" class="sr-only">Bulk Actions</label>
-                  <select name="bulk_actions" class="form-control select2" style="width: 200px;" aria-label="bulk_actions">
-                    <option value="delete">Bulk Checkin &amp; Delete</option>
-                    <option value="edit">Bulk Edit</option>
-                  </select>
-                  <button class="btn btn-default" id="bulkEdit" disabled>Go</button>
-                </div>
-              @endcan
-            @endif
-
-
-            <table
-                    data-click-to-select="true"
-                    data-columns="{{ \App\Presenters\UserPresenter::dataTableLayout() }}"
-                    data-cookie-id-table="usersTable"
-                    data-pagination="true"
-                    data-id-table="usersTable"
-                    data-search="true"
-                    data-side-pagination="server"
-                    data-show-columns="true"
-                    data-show-export="true"
-                    data-show-refresh="true"
-                    data-sort-order="asc"
-                    data-toolbar="#toolbar"
-                    id="usersTable"
-                    class="table table-striped snipe-table"
-                    data-url="{{ route('api.users.index',
-              array('deleted'=> (request('status')=='deleted') ? 'true' : 'false','company_id' => e(request('company_id')))) }}"
-                    data-export-options='{
-                "fileName": "export-users-{{ date('Y-m-d') }}",
-                "ignoreColumn": ["actions","image","change","checkbox","checkincheckout","icon"]
-                }'>
-                    </table>
-
-
-                    {{ Form::close() }}
-                </div><!-- /.box-body -->
-            </div><!-- /.box -->
-        </div>
-    </div>
 
 @stop
 
 @section('moar_scripts')
 
+    @include ('partials.bootstrap-table')
 
-@include ('partials.bootstrap-table')
-
+    <x-table.advanced-search
+        tableId="usersListingTable"
+        :model="\App\Models\User::class"
+    />
 
 @stop

@@ -9,10 +9,7 @@ class AddLicenseNameToLicenses extends Migration
      *
      * @return void
      */
-    public function up()
-    {
-
-    }
+    public function up() {}
 
     /**
      * Reverse the migrations.
@@ -23,5 +20,4 @@ class AddLicenseNameToLicenses extends Migration
     {
         //
     }
-
 }

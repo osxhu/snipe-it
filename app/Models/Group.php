@@ -1,64 +1,174 @@
 <?php
+
 namespace App\Models;
 
+use App\Models\Builders\GroupQueryBuilder;
 use App\Models\Traits\Searchable;
+use App\Presenters\GroupPresenter;
+use App\Presenters\Presentable;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Support\Facades\Gate;
 use Watson\Validating\ValidatingTrait;
 
+/**
+ * @mixin IdeHelperGroup
+ */
 class Group extends SnipeModel
 {
+    use HasFactory;
+    use Presentable;
+
     protected $table = 'permission_groups';
 
-    public $rules = array(
-      'name' => 'required|min:2|max:255',
-    );
+    public $rules = [
+        'name' => 'required|max:255|unique',
+    ];
+
+    protected $fillable = [
+        'name',
+        'permissions',
+        'notes',
+    ];
 
     /**
-    * Whether the model should inject it's identifier to the unique
-    * validation rules before attempting validation. If this property
-    * is not set in the model it will default to true.
-    *
-    * @var boolean
-    */
+     * Whether the model should inject it's identifier to the unique
+     * validation rules before attempting validation. If this property
+     * is not set in the model it will default to true.
+     *
+     * @var bool
+     */
     protected $injectUniqueIdentifier = true;
-    use ValidatingTrait;
+
+    protected $presenter = GroupPresenter::class;
 
     use Searchable;
-    
+    use ValidatingTrait;
+
     /**
      * The attributes that should be included when searching the model.
-     * 
+     *
      * @var array
      */
-    protected $searchableAttributes = ['name', 'created_at'];
+    protected $searchableAttributes = [
+        'name',
+        'created_at',
+        'notes',
+    ];
 
     /**
      * The relations and their attributes that should be included when searching the model.
-     * 
+     *
      * @var array
      */
-    protected $searchableRelations = [];
+    protected $searchableRelations = [
+        'adminuser' => ['first_name', 'last_name', 'display_name'],
+    ];
+
+    /**
+     * Advanced-search filterable fields. Groups has no model-level FKs
+     * beyond created_by, so the filter set is narrow.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public static function filterableFields(): array
+    {
+        return [
+            [
+                'field' => 'created_by',
+                'type' => 'fk',
+                'column' => 'created_by',
+                'endpoint' => 'users',
+                'label' => trans('general.created_by'),
+            ],
+            [
+                'field' => 'created_at',
+                'type' => 'date-range',
+                'label' => trans('general.created_at'),
+            ],
+            [
+                'field' => 'updated_at',
+                'type' => 'date-range',
+                'label' => trans('general.updated_at'),
+            ],
+        ];
+    }
+
+    /**
+     * Detach all users_groups pivot rows when a group is deleted.
+     */
+    protected static function booted(): void
+    {
+        static::deleting(function (self $group) {
+            $group->users()->detach();
+        });
+    }
+
+    public function isDeletable()
+    {
+        return Gate::allows('delete', $this)
+            && (($this->users_count ?? $this->users()->count()) === 0);
+    }
 
     /**
      * Establishes the groups -> users relationship
      *
      * @author A. Gianotto <snipe@snipe.net>
-     * @since [v1.0]
-     * @return \Illuminate\Database\Eloquent\Relations\Relation
+     *
+     * @since  [v1.0]
+     *
+     * @return Relation
      */
     public function users()
     {
-        return $this->belongsToMany('\App\Models\User', 'users_groups');
+        return $this->belongsToMany(User::class, 'users_groups');
+    }
+
+    /* this is just a shim for SCIM to work */
+    public function members()
+    {
+        return $this->users();
     }
 
     /**
      * Decode JSON permissions into array
      *
      * @author A. Gianotto <snipe@snipe.net>
-     * @since [v1.0]
-     * @return array
+     *
+     * @since  [v1.0]
+     *
+     * @return array | \stdClass
      */
     public function decodePermissions()
     {
-        return json_decode($this->permissions, true);
+        // If the permissions are an array, convert it to JSON
+        if (is_array($this->permissions)) {
+            $this->permissions = json_encode($this->permissions);
+        }
+
+        $permissions = json_decode($this->permissions ?? '{}', JSON_OBJECT_AS_ARRAY);
+
+        // Otherwise, loop through the permissions and cast the values as integers
+        if ((is_array($permissions)) && ($permissions)) {
+            foreach ($permissions as $permission => $value) {
+
+                if (! is_int($permission)) {
+                    $permissions[$permission] = (int) $value;
+                } else {
+                    \Log::info('Weird data here - skipping it');
+                    unset($permissions[$permission]);
+                }
+            }
+
+            return $permissions ?: new \stdClass;
+        }
+
+        return new \stdClass;
+
+    }
+
+    public function newEloquentBuilder($query): GroupQueryBuilder
+    {
+        return new GroupQueryBuilder($query);
     }
 }

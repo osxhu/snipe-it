@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests;
 
+use App\Models\Setting;
+
 class AssetCheckinRequest extends Request
 {
     /**
@@ -21,9 +23,27 @@ class AssetCheckinRequest extends Request
      */
     public function rules()
     {
-        return [
+        return static::rulesArray();
+    }
 
+    /**
+     * Statically-callable rules array so non-FormRequest callers (the MCP
+     * CheckinAssetTool, Artisan commands, tests) can validate against the
+     * same shape without constructing a Request instance.
+     */
+    public static function rulesArray(): array
+    {
+        $settings = Setting::getSettings();
+
+        $rules = [
+            'requestable' => 'nullable|boolean',
         ];
+
+        if ($settings->require_checkinout_notes) {
+            $rules['note'] = 'string|required';
+        }
+
+        return $rules;
     }
 
     public function response(array $errors)

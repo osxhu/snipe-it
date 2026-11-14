@@ -1,21 +1,24 @@
 <?php
 
-return array(
+return [
 
-    'does_not_exist' => '部門不存在。',
-    'assoc_users'	 => '至少還有一位使用者與此部門關聯，目前不能被删除，請檢查後重試。 ',
-    'create' => array(
-        'error'   => '新增部門失敗，請重試。',
-        'success' => '新增部門成功。'
-    ),
-    'update' => array(
-        'error'   => '更新部門失敗，請重試。',
-        'success' => '成功更新部門。'
-    ),
-    'delete' => array(
-        'confirm'   	=> '您確定要刪除此部門嗎？',
-        'error'   => '刪除部門時發生問題，請重試。',
-        'success' => '刪除部門成功。'
-    )
+    'does_not_exist' => 'Department does not exist.',
+    'department_already_exists' => 'A department already exists with that name at this company location. Or choose a more specific name for this department. ',
+    'assoc_users' => 'This department is currently associated with at least one user and cannot be deleted. Please update your users to no longer reference this department and try again. ',
+    'create' => [
+        'error' => 'Department was not created, please try again.',
+        'success' => 'Department created successfully.',
+    ],
+    'update' => [
+        'error' => 'Department was not updated, please try again',
+        'success' => 'Department updated successfully.',
+    ],
+    'delete' => [
+        'confirm' => 'Are you sure you wish to delete this department?',
+        'error' => 'There was an issue deleting the department. Please try again.',
+        'success' => 'The department was deleted successfully.',
+        'bulk_success' => 'Department deleted successfully.|:count departments were deleted successfully.',
+        'partial_success' => 'Department deleted successfully. See additional information below. | :count departments were deleted successfully. See additional information below.',
+    ],
 
-);
+];

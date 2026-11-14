@@ -1,0 +1,81 @@
+<?php
+
+return [
+
+    'update' => [
+        'error' => 'Počas upravovania sa vyskytla chyba. ',
+        'success' => 'Nastavenia boli úspešne upravené.',
+    ],
+    'backup' => [
+        'delete_confirm' => 'Ste si istý, že chcete odstrániť tento súbor so zálohou? Táto akcia sa nedá vrátiť. ',
+        'file_deleted' => 'Súbor so zálohou bol úspešne odstránený. ',
+        'generated' => 'Nový súbor so zálohou bol úspešne vytvorený.',
+        'file_not_found' => 'Súbor so zálohou sa nepodarilo nájsť na serveri.',
+        'restore_warning' => 'Áno, obnoviť. Uvedomujem si, že táto akcia prepíše všetky existujúce dáta v databáze. Taktiež budú odhlásení všetci používatelia (vrátane vás).',
+        'restore_confirm' => 'Ste si istí, že chcete obnoviť databázu z :fielname?',
+        'delete_disabled_help' => 'Odstraňovanie záloh je vypnuté. Ak ho chcete povoliť, kontaktujte svojho administrátora.',
+    ],
+    'restore' => [
+        'success' => 'Vaša systémová záloha bola obnovená. Prosím znovu sa prihláste.',
+        'archive_invalid' => 'Vybraný súbor zálohy (:filename) nie je platný zip archív. Obnovenie bolo prerušené ešte pred zásahom do databázy.',
+        'zip_extension_missing' => 'Na tomto serveri nie je načítané rozšírenie PHP zip. Archív zálohy nie je možné overiť, a preto bolo obnovenie prerušené, aby nedošlo k strate údajov. Požiadajte správcu servera o inštaláciu ext-zip.',
+        'pre_backup_failed' => 'Nepodarilo sa vytvoriť bezpečnostnú zálohu pred obnovením. Obnovenie bolo prerušené, aby existujúca databáza nebola zničená bez možnosti obnovy.',
+        'failed_with_backup' => 'Obnovenie zlyhalo. Pôvodná databáza bola v rámci pokusu o obnovenie vymazaná, ale záloha pred obnovením bola uložená do :backup a môžete ju použiť na obnovu.',
+    ],
+    'purge' => [
+        'error' => 'Počas čistenia sa vyskytla chyba. ',
+        'validation_failed' => 'Potvrdenie odstránenia nie je správne. Prosím napíšte slovo "DELETE" do políčka na potvrdenie.',
+        'success' => 'Odstránené záznamy boli úspešne očistené.',
+    ],
+    'mail' => [
+        'sending' => 'Posielam testovací email...',
+        'success' => 'Email odoslaný!',
+        'error' => 'Email sa nepodarilo odoslať.',
+        'additional' => 'Podrobná správa o chybe nie je dostupná. Skontrolujte nastavenia pošty a logy.',
+    ],
+    'ldap' => [
+        'testing' => 'Testujem LDAP spojenie, väzbu a dopyty ...',
+        '500' => '500 chyba servera. Prosím skontroluje serverové logy pre viac informácií.',
+        'error' => 'Niečo sa pokazilo :(',
+        'sync_success' => 'Ukážka 10 používateľov vrátená z LDAP server na základe vašich nastavení:',
+        'testing_authentication' => 'Testujem LDAP autentifikáciu...',
+        'authentication_success' => 'Používateľ sa úspešne autentifikoval voči LDAP-u!',
+    ],
+    'labels' => [
+        'null_template' => 'Šablóna štítku sa nenašla. Vyberte šablónu.',
+    ],
+    'webhook' => [
+        'sending' => 'Posielam :app testovaciu správu...',
+        'success' => 'Vaša :webhook_name integrácia funguje!',
+        'success_pt1' => 'Úspešné! Skontrolujte ',
+        'success_pt2' => ' kanál pre vaše testovacie správy a uistite sa, že kliknete na tlačidlo ULOŽIŤ pre uloženie nastavení.',
+        '500' => '500 Chyba servera.',
+        'error' => 'Nastala chyba. :app odpovedala s: :error_message',
+        'error_redirect' => 'CHBA: 301/302 :endpoint vrátil presmerovanie. Z bezpečnostných dôvodov nenasledujeme presmerovania. Prosím použite správny koncový bod.',
+        'error_misc' => 'Niečo sa pokazilo. :( ',
+        'webhook_fail' => ' webhook notifikácia zlyhala: Overte správnosť zadanej URL adresy.',
+        'webhook_channel_not_found' => ' kanál webhooku nebol nájdený.',
+        'ms_teams_deprecation' => 'Vybraná URL adresa webhooku pre Microsoft Teams bude 31. decembra 2025 zastaraná. Použite URL adresu pracovného postupu. Dokumentáciu spoločnosti Microsoft o vytvorení pracovného postupu nájdete <a href="https://support.microsoft.com/en-us/office/create-incoming-webhooks-with-workflows-for-microsoft-teams-8ae491c7-0394-4861-ba59-055e33f75498" target="_blank"> tu.</a>',
+    ],
+    'location_scoping' => [
+        'not_saved' => 'Vaše nastavenia neboli uložené.',
+        'mismatch' => 'V databáze je 1 položka, ktorá vyžaduje vašu pozornosť pred povolením určenia lokality.|V databáze je :count položiek, ktoré vyžadujú vašu pozornosť pred povolením určenia lokality.',
+    ],
+    'oauth' => [
+        'token_revoked' => 'Osobný prístupový token bol úspešne zrušený.',
+        'token_unrevoked' => 'Osobný prístupový token bol úspešne obnovený.',
+        'token_not_found' => 'Tento osobný prístupový token sa nenašiel.',
+        'token_revoke_error' => 'Pri rušení tokenu sa vyskytla chyba.',
+        'token_unrevoke_error' => 'Pri obnovovaní tokenu sa vyskytla chyba.',
+        'client_created' => 'OAuth klient bol úspešne vytvorený.',
+        'client_updated' => 'OAuth klient bol úspešne aktualizovaný.',
+        'client_deleted' => 'OAuth klient bol úspešne odstránený.',
+        'client_revoked' => 'OAuth klient bol úspešne zrušený.',
+        'client_unrevoked' => 'OAuth klient bol úspešne obnovený.',
+        'client_not_found' => 'Tento OAuth klient sa nenašiel.',
+        'token_deleted' => 'Token bol úspešne zrušený.',
+        'client_delete_denied' => 'Nemáte oprávnenie odstrániť tohto klienta.',
+        'client_edit_denied' => 'Nemáte oprávnenie upravovať tohto klienta.',
+        'token_delete_denied' => 'Nemáte oprávnenie zrušiť tento token.',
+    ],
+];

@@ -1,12 +1,21 @@
 <?php
 
-return array(
-    'about_asset_depreciations'  			=> '關於資產折舊',
-    'about_depreciations'  					=> '您可以設置資產折舊期限',
-    'asset_depreciations'  					=> '資產折舊',
-    'create'  					            => '新建折舊',
-    'depreciation_name'  					=> '折舊名稱',
-    'number_of_months'  					=> '月數',
-    'update'  					            => '更新折舊',
-
-);
+return [
+    'about_asset_depreciations' => 'About Asset Depreciations',
+    'about_depreciations' => 'You can set up asset depreciations to depreciate assets based on linear (straight-line), Half Year applied with condition, or Half Year always applied.',
+    'asset_depreciations' => 'Asset Depreciations',
+    'create' => 'Create Depreciation',
+    'depreciation_name' => 'Depreciation Name',
+    'number_of_months' => 'Number of Months',
+    'rate_multiplier' => 'Rate Multiplier',
+    'update' => 'Update Depreciation',
+    'fiscal_year_start_month' => 'Fiscal Year Start Month',
+    'no_depreciations_warning' => '<strong>Warning: </strong>
+                      You do not currently have any depreciations set up.
+                      Please set up at least one depreciation to view the depreciation report.',
+    'depreciation_method' => 'Depreciation Report',
+    'linear_depreciation' => 'Linear (Default)',
+    'diminishing_depreciation' => 'Diminishing Value Depreciation',
+    'half_1' => 'Half-year convention, always applied',
+    'half_2' => 'Half-year convention, applied with condition',
+];

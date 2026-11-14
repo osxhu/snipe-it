@@ -1,5 +1,5 @@
 @extends('layouts/setup')
-
+{{-- TODO: Translate --}}
 {{-- Page title --}}
 @section('title')
 Create a User ::
@@ -9,14 +9,14 @@ Create a User ::
 {{-- Page content --}}
 @section('content')
 
-<p>This page will do a system check to make sure your configuration looks correct. We'll add your first user on the next page. </p>
+<h4> First let's do a quick system check to make sure your configuration looks correct.  </h4>
 
 <table class="table">
   <thead>
     <tr>
-      <th class="col-lg-2">Setting</th>
-      <th class="col-lg-1">Valid</th>
-      <th class="col-lg-9">Notes</th>
+      <th scope="col" class="col-lg-2">Setting</th>
+      <th scope="col" class="col-lg-1">Valid</th>
+      <th scope="col" class="col-lg-9">Notes</th>
     </tr>
   </thead>
   <tbody>
@@ -24,9 +24,9 @@ Create a User ::
       <td>PHP</td>
       <td>
           @if ($start_settings['php_version_min'])
-              <i class="fa fa-check preflight-success"></i>
+              <i class="fas fa-check preflight-success"></i>
           @else
-              <i class="fa fa-times preflight-error"></i>
+              <i class="fas fa-times preflight-error"></i>
           @endif
       </td>
       <td>
@@ -44,9 +44,9 @@ Create a User ::
       <td>URL</td>
       <td>
         @if ($start_settings['url_valid'])
-          <i class="fa fa-check preflight-success"></i>
+          <i class="fas fa-check preflight-success"></i>
         @else
-          <i class="fa fa-times preflight-error"></i>
+          <i class="fas fa-times preflight-error"></i>
         @endif
       </td>
       <td>
@@ -63,9 +63,9 @@ Create a User ::
       <td>Database</td>
       <td>
         @if ($start_settings['db_conn']===true)
-          <i class="fa fa-check preflight-success"></i>
+          <i class="fas fa-check preflight-success"></i>
         @else
-          <i class="fa fa-times preflight-error"></i>
+          <i class="fas fa-times preflight-error"></i>
         @endif
       </td>
       <td>
@@ -81,9 +81,9 @@ Create a User ::
       <td>Config File</td>
       <td>
         @if (!$start_settings['env_exposed'])
-          <i class="fa fa-check preflight-success"></i>
+          <i class="fas fa-check preflight-success"></i>
         @else
-          <i class="fa fa-times preflight-error"></i>
+          <i class="fas fa-times preflight-error"></i>
         @endif
       </td>
       <td>
@@ -99,9 +99,9 @@ Create a User ::
       <td>Environment</td>
       <td>
         @if ($start_settings['prod'])
-          <i class="fa fa-check preflight-success"></i>
+          <i class="fas fa-check preflight-success"></i>
         @else
-          <i class="fa fa-times preflight-error"></i>
+          <i class="fas fa-times preflight-error"></i>
         @endif
       </td>
       <td>
@@ -117,9 +117,9 @@ Create a User ::
       <td>File Owner</td>
       <td>
         @if (!$start_settings['owner_is_admin'])
-          <i class="fa fa-check preflight-success"></i>
+          <i class="fas fa-check preflight-success"></i>
         @else
-          <i class="fa fa-times preflight-error"></i>
+          <i class="fas fa-times preflight-error"></i>
         @endif
       </td>
       <td>
@@ -135,9 +135,9 @@ Create a User ::
       <td>Permissions</td>
       <td>
         @if ($start_settings['writable'])
-          <i class="fa fa-check preflight-success"></i>
+          <i class="fas fa-check preflight-success"></i>
         @else
-          <i class="fa fa-times preflight-error"></i>
+          <i class="fas fa-times preflight-error"></i>
         @endif
       </td>
       <td>
@@ -153,16 +153,16 @@ Create a User ::
       <td>Debug</td>
       <td>
         @if (!$start_settings['debug_exposed'])
-          <i class="fa fa-check preflight-success"></i>
+          <i class="fas fa-check preflight-success"></i>
         @else
-          <i class="fa fa-times preflight-error"></i>
+          <i class="fas fa-times preflight-error"></i>
         @endif
       </td>
       <td>
         @if (!$start_settings['debug_exposed'])
           Awesomesauce. Debug is either turned off, or you're running this in a non-production environment. (Don't forget to turn it off when you're ready to go live.)
         @else
-          Yikes! You should turn off debug mode unless you encounter any issues. Please update your <code>APP_DEBUG</code> settings in your  <code>.env</code> file
+          <p>Yikes! You should turn off debug mode unless you encounter any issues. Please update your <code>APP_DEBUG</code> settings in your  <code>.env</code> file</p>
         @endif
       </td>
     </tr>
@@ -171,36 +171,29 @@ Create a User ::
       <td>Image Library</td>
       <td>
         @if ($start_settings['gd'])
-          <i class="fa fa-check preflight-success"></i>
+          <i class="fas fa-check preflight-success"></i>
         @else
-          <i class="fa fa-times preflight-warning"></i>
+          <i class="fas fa-times preflight-warning"></i>
         @endif
       </td>
       <td>
         @if ($start_settings['gd'])
-          GD is installed. Go you!
+          <p>GD is installed. Go you!</p>
         @else
-          The GD library isn't installed. While this won't prevent the system from working, you won't be able to generate labels or upload images.
+          <p>The GD library isn't installed. While this won't prevent the system from working, you won't be able to generate labels or upload images.</p>
         @endif
       </td>
     </tr>
 
-    <tr id="mailtestrow" class="warning">
+    <tr id="mailtestrow" class="info">
       <td>Email</td>
       <td>
-            <a class="btn btn-default btn-sm pull-left" id="mailtest" style="margin-right: 10px;">
-                Send Test</a>
+          <span id="mailtesticon" role="status" aria-live="polite" aria-atomic="true"></span>
       </td>
         <td>
-            <span id="mailtesticon"></span>
-            <span id="mailtestresult"></span>
-            <span id="mailteststatus"></span>
-            <div class="col-md-12">
-                <div id="mailteststatus-error" class="text-danger"></div>
-            </div>
-            <div class="col-md-12">
-                <p class="help-block">This will attempt to send a test mail to {{ config('mail.from.address') }}.</p>
-            </div>
+            <p>This will attempt to send a test mail to {{ config('mail.from.address') }}.</p>
+            <a class="btn btn-default btn-sm pull-left" id="mailtest" style="margin-right: 10px;">Send Test</a>
+            <div id="mailteststatus-text" class="text-danger" role="status" aria-live="polite" aria-atomic="true"></div>
       </td>
     </tr>
   </tbody>
@@ -209,9 +202,14 @@ Create a User ::
 @stop
 
 @section('button')
-  <form action="{{ route('setup.migrate') }}" method="GET">
-    <button class="btn btn-primary">Next: Create Database Tables</button>
+  <form action="{{ route('setup.migrate') }}" method="POST">
+      @csrf
+    <button class="btn btn-primary">
+        {{ trans('general.setup_next') }}: {{ trans('general.setup_create_database') }}
+        <i class="fa-solid fa-angles-right"></i>
+    </button>
   </form>
+
 @parent
 @stop
 
@@ -223,12 +221,11 @@ Create a User ::
 
         $("#mailtest").click(function(){
 
-            $("#mailtestrow").removeClass('success').removeClass('danger').removeClass('warning');
-            $("#mailtestrow").addClass('info');
+            $("#mailtestrow").removeClass('success').removeClass('danger').removeClass('warning').addClass('info');
             $("#mailtesticon").html('');
-            $("#mailteststatus").html('');
+            $("#mailteststatus").html('Sending Test Email...');
             $('#mailteststatus-error').html('');
-            $("#mailtesticon").html('<i class="fa fa-spinner spin"></i> Sending Test Email...');
+            $("#mailtesticon").html('<i class="fas fa-spinner fa-spin text-info"></i>');
 
             $.ajax({
                 url: "{{ route('setup.mailtest') }}",
@@ -237,16 +234,16 @@ Create a User ::
                     if (result.status == 'success') {
                         $("#mailtestrow").removeClass('info').removeClass('danger').removeClass('warning');
                         $("#mailtestrow").addClass('success');
-                        $("#mailtesticon").html('');
+                        $("#mailtesticon").html('<i class="fas fa-check preflight-success"></i>');
                         $("#mailteststatus").html('');
                         $('#mailteststatus-error').html('');
-                        $("#mailteststatus").removeClass('text-danger');
-                        $("#mailteststatus").addClass('text-success');
-                        $("#mailteststatus").html('<i class="fa fa-check text-success"></i> Mail sent to {{ config('mail.from.address') }}!');
+                        $("#mailteststatus-text").removeClass('text-danger');
+                        $("#mailteststatus-text").addClass('text-success');
+                        $("#mailteststatus-text").html('Mail sent to {{ config('mail.from.address') }}!');
                     } else {
                         $("#mailtestrow").removeClass('success').removeClass('info').removeClass('warning');
                         $("#mailtestrow").addClass('danger');
-                        $("#mailtesticon").html('<i class="fa fa-check preflight-error"></i>');
+                        $("#mailtesticon").html('<i class="fas fa-check preflight-error"></i>');
                         $("#mailtestresult").html('Something went wrong. Your email was not sent. Check your mail settings in your <code>.env</code> file.');
 
                     }
@@ -257,12 +254,12 @@ Create a User ::
                     $("#mailtestrow").removeClass('success').removeClass('info').removeClass('warning');
                     $("#mailtestrow").addClass('danger');
                     $("#mailtesticon").html('');
-                    $("#mailteststatus").html('');
+                    $("#mailteststatus-text").html('');
                     $('#mailteststatus-error').html('');
-                    $("#mailteststatus").removeClass('text-success');
-                    $("#mailteststatus").addClass('text-danger');
-                    $("#mailtesticon").html('<i class="fa fa-exclamation-triangle text-danger"></i>');
-                    $('#mailteststatus').html('Mail could not be sent.');
+                    $("#mailteststatus-text").removeClass('text-success');
+                    $("#mailteststatus-text").addClass('text-danger');
+                    $("#mailtesticon").html('<i class="fas fa-exclamation-triangle text-danger"></i>');
+                    $('#mailteststatus-text').html('Mail could not be sent.');
                     if (result.responseJSON) {
                         $('#mailteststatus-error').html('Error: ' + result.responseJSON.messages);
                     } else {

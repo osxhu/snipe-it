@@ -1,10 +1,9 @@
 <?php
 
-use Illuminate\Support\Facades\Schema;
-use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Database\Migrations\Migration;
 use App\Models\Actionlog;
 use App\Models\Asset;
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Support\Facades\Schema;
 
 class ReNormalizeLastAudit extends Migration
 {
@@ -15,7 +14,6 @@ class ReNormalizeLastAudit extends Migration
      */
     public function up()
     {
-
         if (Schema::hasColumn('assets', 'last_audit_date')) {
 
             // Grab the latest info from the Actionlog table where the action is 'audit'
@@ -34,7 +32,6 @@ class ReNormalizeLastAudit extends Migration
                         $asset->unsetEventDispatcher();
                         $asset->save();
                     }
-
                 }
             }
         }

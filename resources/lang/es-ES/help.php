@@ -1,6 +1,6 @@
 <?php
 
-return array(
+return [
 
     /*
     |--------------------------------------------------------------------------
@@ -13,24 +13,23 @@ return array(
     |
     */
 
-    "more_info_title" => "Más información",
+    'more_info_title' => 'Más información',
 
-    "audit_help" => "Checking this box will edit the asset record to reflect this new location. Leaving it unchecked will simply note the location in the audit log.<br><br>Note that is this asset is checked out, it will not change the location of the person, asset or location it is checked out to.",
+    'audit_help' => 'Al marcar esta casilla se actualizará el activo para reflejar esta nueva ubicación. Dejarla sin marcar, simplemente almacenará la ubicación en el registro de auditoría.<br><br>Tenga en cuenta que si este activo ya está asignado, no cambiará la ubicación de la persona, del activo o de la ubicación a la que esté asignado.',
 
-    'assets' => 'Los activos son elementos con número de serie o etiqueta de activos.  Tienden a ser artículos de alto valor donde es importante identificar un elemento específico.',
+    'assets' => 'Los activos son artículos rastreados por número de serie o placa de activo.  Suelen ser artículos de alto valor en los que es importante identificar un elemento específico.',
 
-    'categories' => 'Categories help you organize your items. Some example categories might be &quot;Desktops&quot;, &quot;Laptops&quot;, &quot;Mobile Phones&quot;, &quot;Tablets&quot;, and so on, but you can use categories any way that makes sense for you.',
+    'categories' => 'Las categorías le ayudan a organizar sus elementos. Unos ejemplos de categorías podrían ser: &quot;PC Escritorios&quot;, &quot;Portátiles&quot;, &quot;Móviles&quot;, &quot;Tabletas&quot;, etc.',
 
-    'accessories' => 'Accessories are anything you issue to users but that do not have a serial number (or you do not care about tracking them uniquely). For example, computer mice or keyboards.',
+    'accessories' => 'Los accesorios son cualquier cosa que se le asigne a los usuarios pero que no tenga número de serie (o no importe realizarle el seguimiento en forma única). Por ejemplo, ratones o teclados.',
 
-    'companies'     => 'Companies can be used as a simple identifier field, or can be used to limit visibility of assets, users, etc if full company support is enabled in your Admin settings.',
+    'companies' => 'Las compañías se pueden utilizar como un simple campo identificador, o se pueden utilizar para limitar la visibilidad de los activos, usuarios, etc. si la opción "Soporte completo a múltiples compañías" está habilitada en "Configuración de administración".',
 
-    'components'    => 'Los componentes son elementos que son parte de un activo, por ejemplo HDD, RAM, etc.',
+    'components' => 'Los componentes son elementos que son parte de un activo, por ejemplo, el disco duro, RAM, etc.',
 
-    'consumables'   => 'Los consumibles son cualquier cosa comprada que se usará con el tiempo. Por ejemplo, tinta de impresora o papel copiador.',
+    'consumables' => 'Los consumibles son todo aquello que se compra y que se agota con el tiempo. Por ejemplo, tinta de impresora o papel de fotocopiadora.',
 
-    'depreciations' => 'You can set up asset depreciations to depreciate assets based on straight-line depreciation.',
+    'depreciations' => 'Puede configurar la depreciación de activos usando un método de línea recta.',
 
-
-
-);
+    'empty_file' => 'El importador detecta que este archivo está vacío.',
+];

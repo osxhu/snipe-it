@@ -1,137 +1,94 @@
 <?php
 
-// Predefined Kit Management
-Route::resource('kits', 'Kits\PredefinedKitsController', [
+use App\Http\Controllers\Kits;
+use App\Models\PredefinedKit;
+use Illuminate\Support\Facades\Route;
+use Tabuna\Breadcrumbs\Trail;
+
+// All numeric-PK params inside this group get constrained via the group's
+// `where` array so garbage-input requests 404 at the router before hitting
+// controllers or breadcrumbs.
+Route::group([
+    'prefix' => 'kits/{kit}',
     'middleware' => ['auth'],
-    'parameters' => ['kit' => 'kit_id']
-]);
+    'where' => [
+        'kit' => '[0-9]+',
+        'license_id' => '[0-9]+',
+        'model_id' => '[0-9]+',
+        'consumable_id' => '[0-9]+',
+        'accessory_id' => '[0-9]+',
+    ],
+], function () {
 
+    // Route::get('licenses',
+    //     [Kits\PredefinedKitsController::class, 'indexLicenses']
+    // )->name('kits.licenses.index');
 
+    Route::put('licenses',
+        [Kits\PredefinedKitsController::class, 'storeLicense']
+    )->name('kits.licenses.store');
 
-Route::group([ 'prefix' => 'kits/{kit_id}', 'middleware' => ['auth'] ], function () {
+    Route::put('licenses/{license_id}',
+        [Kits\PredefinedKitsController::class, 'updateLicense']
+    )->name('kits.licenses.update');
 
-    // Route::get('licenses', 
-    //     [
-    //         'as' => 'kits.licenses.index',
-    //         'uses' => 'Kits\PredefinedKitsController@indexLicenses',
-    //     ]
-    // );
-    
-    Route::post('licenses', 
-        [
-            'as' => 'kits.licenses.store',
-            'uses' => 'Kits\PredefinedKitsController@storeLicense',
-        ]
-    );
-    
-    Route::put('licenses/{license_id}', 
-        [
-            'as' => 'kits.licenses.update',
-            'uses' => 'Kits\PredefinedKitsController@updateLicense',
-        ]
-    );
-  
-    Route::get('licenses/{license_id}/edit', 
-        [
-            'as' => 'kits.licenses.edit',
-            'uses' => 'Kits\PredefinedKitsController@editLicense',
-            
-        ]
-    );
+    Route::get('licenses/{license_id}/edit', [Kits\PredefinedKitsController::class, 'editLicense'])
+        ->name('kits.licenses.edit')
+        ->breadcrumbs(fn (Trail $trail) => $trail->parent('settings.index')
+            ->push(trans('admin/settings/general.backups'), route('kits.licenses.edit')));
 
-    Route::delete('licenses/{license_id}', 
-        [
-            'as' => 'kits.licenses.detach',
-            'uses' => 'Kits\PredefinedKitsController@detachLicense',
-        ]
-    );
+    Route::delete('licenses/{license_id}',
+        [Kits\PredefinedKitsController::class, 'detachLicense']
+    )->name('kits.licenses.detach');
 
-    
     // Models
-    
-    Route::put('models/{model_id}', 
-        [
-            'as' => 'kits.models.update',
-            'uses' => 'Kits\PredefinedKitsController@updateModel',
-            'parameters' => [2 => 'kit_id', 1 => 'model_id']
-        ]
-    );
-  
-    Route::get('models/{model_id}/edit', 
-        [
-            'as' => 'kits.models.edit',
-            'uses' => 'Kits\PredefinedKitsController@editModel',
-            
-        ]
-    );
 
-    Route::delete('models/{model_id}', 
-        [
-            'as' => 'kits.models.detach',
-            'uses' => 'Kits\PredefinedKitsController@detachModel',
-        ]
-    );
+    Route::put('models/{model_id}',
+        [Kits\PredefinedKitsController::class, 'updateModel']
+    )->name('kits.models.update');
 
+    Route::get('models/{model_id}/edit',
+        [Kits\PredefinedKitsController::class, 'editModel']
+    )->name('kits.models.edit');
+
+    Route::delete('models/{model_id}',
+        [Kits\PredefinedKitsController::class, 'detachModel']
+    )->name('kits.models.detach');
 
     // Consumables
-    Route::put('consumables/{consumable_id}', 
-        [
-            'as' => 'kits.consumables.update',
-            'uses' => 'Kits\PredefinedKitsController@updateConsumable',
-            'parameters' => [2 => 'kit_id', 1 => 'consumable_id']
-        ]
-    );
-  
-    Route::get('consumables/{consumable_id}/edit', 
-        [
-            'as' => 'kits.consumables.edit',
-            'uses' => 'Kits\PredefinedKitsController@editConsumable',
-            
-        ]
-    );
+    Route::put('consumables/{consumable_id}',
+        [Kits\PredefinedKitsController::class, 'updateConsumable']
+    )/* ->parameters([2 => 'kit_id', 1 => 'consumable_id']) */ ->name('kits.consumables.update');
 
-    Route::delete('consumables/{consumable_id}', 
-        [
-            'as' => 'kits.consumables.detach',
-            'uses' => 'Kits\PredefinedKitsController@detachConsumable',
-        ]
-    );
+    Route::get('consumables/{consumable_id}/edit',
+        [Kits\PredefinedKitsController::class, 'editConsumable']
+    )->name('kits.consumables.edit');
 
+    Route::delete('consumables/{consumable_id}',
+        [Kits\PredefinedKitsController::class, 'detachConsumable']
+    )->name('kits.consumables.detach');
 
     // Accessories
-    Route::put('accessories/{accessory_id}', 
-        [
-            'as' => 'kits.accessories.update',
-            'uses' => 'Kits\PredefinedKitsController@updateAccessory',
-            'parameters' => [2 => 'kit_id', 1 => 'accessory_id']
-        ]
-    );
+    Route::put('accessories/{accessory_id}',
+        [Kits\PredefinedKitsController::class, 'updateAccessory']
+    )/* ->parameters([2 => 'kit_id', 1 => 'accessory_id']) */ ->name('kits.accessories.update');
 
-    Route::get('accessories/{accessory_id}/edit', 
-        [
-            'as' => 'kits.accessories.edit',
-            'uses' => 'Kits\PredefinedKitsController@editAccessory',
-            
-        ]
-    );
+    Route::get('accessories/{accessory_id}/edit', [Kits\PredefinedKitsController::class, 'editAccessory'])
+        ->name('kits.accessories.edit');
 
-    Route::delete('accessories/{accessory_id}', 
-        [
-            'as' => 'kits.accessories.detach',
-            'uses' => 'Kits\PredefinedKitsController@detachAccessory',
-        ]
-    );
-    Route::get('checkout',
-        [
-            'as' => 'kits.checkout.show',
-            'uses' => 'Kits\CheckoutKitController@showCheckout',
-        ]
-    );
+    Route::delete('accessories/{accessory_id}', [Kits\PredefinedKitsController::class, 'detachAccessory'])
+        ->name('kits.accessories.detach');
 
-    Route::post('checkout',
-        [
-            'as' => 'kits.checkout.store',
-            'uses' => 'Kits\CheckoutKitController@store',
-        ]
-    );
+    Route::get('checkout', [Kits\CheckoutKitController::class, 'showCheckout'])
+        ->name('kits.checkout.show')
+        ->breadcrumbs(fn (Trail $trail, PredefinedKit $kit) => $trail->parent('kits.show', $kit)
+            ->push(trans('general.checkout'), route('kits.checkout.show', $kit)));
+
+    Route::post('checkout', [Kits\CheckoutKitController::class, 'store'])
+        ->name('kits.checkout.store');
 }); // kits
+
+// Predefined Kit Management
+Route::resource('kits', Kits\PredefinedKitsController::class, [
+    'middleware' => ['auth'],
+]);
